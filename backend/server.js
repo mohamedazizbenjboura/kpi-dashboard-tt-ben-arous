@@ -158,6 +158,31 @@ app.post(
   })
 );
 
+// Retire le lien Google Drive ET le fichier live : le tableau de bord
+// retombe exactement dans l'état « premier déploiement » (vide, page
+// Paramètres accessible, aucune erreur) via le même chemin 404 que
+// getFreshData() gère déjà côté frontend. L'historique déjà archivé n'est
+// JAMAIS touché par cette route — uniquement le fichier live + les paramètres.
+app.delete(
+  "/api/settings",
+  wrap(async (req, res) => {
+    if (await store.fileExists(store.KPIS_NAME)) await store.deleteFile(store.KPIS_NAME);
+    if (await store.fileExists(store.PENDING_NAME)) await store.deleteFile(store.PENDING_NAME);
+    const settings = await store.readSettings();
+    await store.writeSettings({
+      ...settings,
+      driveLink: "",
+      fileId: null,
+      liveHash: null,
+      pendingHash: null,
+      pendingDetectedAt: null,
+      dismissedHash: null,
+      lastError: null,
+    });
+    res.json({ ok: true });
+  })
+);
+
 // --- Synchronisation Google Drive (détection + application des changements) ---
 app.get(
   "/api/sync/status",
@@ -234,6 +259,49 @@ app.get(
     } catch (err) {
       res.status(500).json({ error: `Impossible de lire la version archivée : ${err.message}` });
     }
+  })
+);
+
+// Télécharge le classeur .xlsx BRUT d'une version archivée (octets tels
+// qu'appliqués à l'époque, pas une reconstruction) pour que l'utilisateur
+// puisse le garder sur sa machine.
+app.get(
+  "/api/history/:id/download",
+  wrap(async (req, res) => {
+    const history = await store.readHistory();
+    const entry = history.find((h) => h.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Version archivée introuvable." });
+
+    const buffer = await store.downloadFile(entry.fileName);
+    if (!buffer) return res.status(404).json({ error: "Fichier archivé introuvable dans le stockage." });
+
+    const safeMonth = (entry.month || "version").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="kpis_${safeMonth}_${entry.id}.xlsx"`);
+    res.send(buffer);
+  })
+);
+
+// Supprime UNE version archivée (fichier + entrée). Le fichier live et les
+// autres versions archivées ne sont pas affectés.
+app.delete(
+  "/api/history/:id",
+  wrap(async (req, res) => {
+    const history = await store.readHistory();
+    const entry = history.find((h) => h.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Version archivée introuvable." });
+    await store.deleteHistoryEntry(req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+// Vide entièrement l'Historique (toutes les versions archivées). Le fichier
+// live et le lien Google Drive configuré dans Paramètres ne sont pas touchés.
+app.delete(
+  "/api/history",
+  wrap(async (req, res) => {
+    await store.deleteAllHistory();
+    res.json({ ok: true });
   })
 );
 

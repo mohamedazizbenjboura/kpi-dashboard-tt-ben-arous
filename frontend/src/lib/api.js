@@ -50,6 +50,12 @@ export function saveSettings(driveLink) {
   }).then(asJson);
 }
 
+// Retire le lien Drive + le fichier live (le tableau de bord repasse à
+// l'état vide du tout premier déploiement). L'historique n'est pas touché.
+export function clearDriveLink() {
+  return fetch(`${BASE}/settings`, { method: "DELETE" }).then(asJson);
+}
+
 // --- Synchronisation Google Drive ---
 export function fetchSyncStatus() {
   return fetch(`${BASE}/sync/status`).then(asJson);
@@ -76,4 +82,18 @@ export function fetchHistory() {
 // l'historique) : { entry, sheet, fileName, loadedAt }.
 export function fetchHistoryEntry(id) {
   return fetch(`${BASE}/history/${id}/data`).then(asJson);
+}
+
+// URL de téléchargement du classeur .xlsx brut d'une version archivée —
+// utilisée directement comme href d'un lien <a download>, pas via fetch.
+export function historyDownloadUrl(id) {
+  return `${BASE}/history/${id}/download`;
+}
+
+export function deleteHistoryEntry(id) {
+  return fetch(`${BASE}/history/${id}`, { method: "DELETE" }).then(asJson);
+}
+
+export function deleteAllHistory() {
+  return fetch(`${BASE}/history`, { method: "DELETE" }).then(asJson);
 }

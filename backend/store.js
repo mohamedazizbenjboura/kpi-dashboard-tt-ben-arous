@@ -153,6 +153,41 @@ async function addHistoryEntry(entry) {
   if (error) throw new Error(`Échec de l'écriture de l'historique : ${error.message}`);
 }
 
+// Supprime UNE version archivée : son fichier .xlsx dans le bucket Storage,
+// puis sa ligne dans kpi_history. Si le fichier est déjà absent du bucket
+// (incohérence préexistante), on supprime quand même la ligne plutôt que de
+// laisser une entrée fantôme impossible à retirer depuis l'interface.
+async function deleteHistoryEntry(id) {
+  const { data, error } = await supabase
+    .from("kpi_history")
+    .select("file_name")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Échec de la lecture de l'historique : ${error.message}`);
+  if (data?.file_name) await deleteFile(data.file_name);
+  const { error: delErr } = await supabase.from("kpi_history").delete().eq("id", id);
+  if (delErr) throw new Error(`Échec de la suppression de l'historique : ${delErr.message}`);
+}
+
+// Supprime TOUTE la section Historique : chaque fichier archivé dans le
+// bucket, puis toutes les lignes de kpi_history. N'affecte jamais le fichier
+// live ni les paramètres (lien Drive) — uniquement les versions archivées.
+async function deleteAllHistory() {
+  const { data, error } = await supabase.from("kpi_history").select("id, file_name");
+  if (error) throw new Error(`Échec de la lecture de l'historique : ${error.message}`);
+  const rows = data || [];
+  for (const row of rows) {
+    if (row.file_name) await deleteFile(row.file_name);
+  }
+  if (rows.length) {
+    const { error: delErr } = await supabase
+      .from("kpi_history")
+      .delete()
+      .in("id", rows.map((r) => r.id));
+    if (delErr) throw new Error(`Échec de la suppression de l'historique : ${delErr.message}`);
+  }
+}
+
 module.exports = {
   BUCKET,
   KPIS_NAME,
@@ -168,4 +203,6 @@ module.exports = {
   writeSettings,
   readHistory,
   addHistoryEntry,
+  deleteHistoryEntry,
+  deleteAllHistory,
 };

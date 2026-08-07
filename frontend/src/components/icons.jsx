@@ -282,3 +282,21 @@ export const IconLock = (p) => (
     <path d="M12 14.3v2.4" />
   </Icon>
 );
+
+export const IconTrash = (p) => (
+  <Icon {...p}>
+    <path d="M4 7h16" />
+    <path d="M9 7V4.8c0-.7.6-1.3 1.3-1.3h3.4c.7 0 1.3.6 1.3 1.3V7" />
+    <path d="M6.5 7l.7 12a1.8 1.8 0 0 0 1.8 1.7h6a1.8 1.8 0 0 0 1.8-1.7L18.5 7" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </Icon>
+);
+
+export const IconDownload = (p) => (
+  <Icon {...p}>
+    <path d="M12 3.5v11" />
+    <path d="m6.5 10 5.5 5.5 5.5-5.5" />
+    <path d="M4 16.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5" />
+  </Icon>
+);

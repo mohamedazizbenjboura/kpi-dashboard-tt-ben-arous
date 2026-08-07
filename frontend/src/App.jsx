@@ -164,6 +164,16 @@ export default function App() {
     setArchiveError("");
   }
 
+  // Si la version archivée actuellement consultée est supprimée depuis
+  // l'Historique, on ne peut plus l'afficher : on repasse au direct.
+  function handleHistoryEntryDeleted(id) {
+    if (archiveView?.entry?.id === id) exitArchive();
+  }
+
+  function handleHistoryAllDeleted() {
+    exitArchive();
+  }
+
   if (phase === "loading") return <LoadingScreen />;
   if (phase === "error") return <ErrorState message={errorMsg} onRetry={() => load(true)} />;
 
@@ -337,6 +347,8 @@ export default function App() {
                 onOpenVersion={openArchivedVersion}
                 activeVersionId={archiveView?.entry?.id ?? null}
                 openingId={archiveOpeningId}
+                onEntryDeleted={handleHistoryEntryDeleted}
+                onAllDeleted={handleHistoryAllDeleted}
               />
             </>
           )}

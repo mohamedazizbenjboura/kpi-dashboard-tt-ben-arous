@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { fetchSettings, saveSettings, fetchSyncStatus, checkDriveNow } from "../lib/api";
+import { fetchSettings, saveSettings, clearDriveLink, fetchSyncStatus, checkDriveNow } from "../lib/api";
 import { relativeTime } from "../lib/format";
-import { IconCloudLink, IconCheckCircle, IconAlertTriangle, IconRefresh } from "./icons";
+import { IconCloudLink, IconCheckCircle, IconAlertTriangle, IconRefresh, IconTrash } from "./icons";
 
 export default function SettingsPage({ onSaved }) {
   const [driveLink, setDriveLink] = useState("");
@@ -11,6 +11,7 @@ export default function SettingsPage({ onSaved }) {
   const [saveState, setSaveState] = useState("idle"); // idle | saving | done | error
   const [saveError, setSaveError] = useState("");
   const [checking, setChecking] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   async function refresh() {
@@ -52,6 +53,24 @@ export default function SettingsPage({ onSaved }) {
       onSaved?.();
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function handleClear() {
+    if (!savedLink && !status?.live?.sheetName) return;
+    const ok = window.confirm(
+      "Supprimer le lien Google Drive et vider le tableau de bord ?\n\nLe site repassera à son état vide de premier déploiement. L'historique déjà archivé restera intact."
+    );
+    if (!ok) return;
+    setClearing(true);
+    try {
+      await clearDriveLink();
+      setDriveLink("");
+      setSavedLink("");
+      onSaved?.();
+      await refresh();
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -108,6 +127,17 @@ export default function SettingsPage({ onSaved }) {
             >
               <IconRefresh size={14} className={checking ? "animate-spin" : ""} />
               Vérifier maintenant
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClear}
+              disabled={(!savedLink && !status?.live?.sheetName) || clearing}
+              title="Supprime le lien et vide le tableau de bord (l'historique est conservé)"
+              className="flex items-center gap-1.5 text-[12.5px] font-medium px-3.5 py-2.5 rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] text-[var(--color-bad)] hover:bg-[var(--color-bad-dim)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors ml-auto"
+            >
+              <IconTrash size={14} />
+              {clearing ? "Suppression…" : "Supprimer"}
             </button>
           </div>
         </form>
