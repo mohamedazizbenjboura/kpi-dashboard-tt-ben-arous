@@ -1,0 +1,3 @@
+/* Layout is handled with Tailwind utility classes directly in App.jsx and
+   components; global theme tokens, panel chrome and animations live in
+   index.css. This file is intentionally minimal. */

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt on deploy)
+frontend/dist/
+
+# Logs / runtime artifacts
+*.log
+pid.txt
+
+# Local-only data: the app no longer stores anything on local disk (state
+# lives in Supabase — see backend/store.js). Never commit real KPI data or
+# the Google Drive link here; keep any local scratch/seed files private.
+data/
+backend/seed-data/
+
+# Local backup/scratch files
+*.broken-backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
