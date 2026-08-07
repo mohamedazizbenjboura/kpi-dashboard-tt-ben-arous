@@ -8,7 +8,6 @@ const store = require("./store");
 const sync = require("./sync");
 
 const PORT = process.env.PORT || 4000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
 const app = express();
 
@@ -64,19 +63,6 @@ app.use(express.json());
 // Express (sinon une exception dans un handler `async` plante le process
 // sans réponse HTTP propre).
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-
-// Protège les routes qui modifient l'état de l'application (paramètres,
-// application/rejet d'une synchro). Si ADMIN_KEY n'est pas défini côté
-// serveur (ex. développement local), la protection est désactivée pour ne
-// pas casser le flux local existant — elle est en revanche systématiquement
-// active dès qu'une variable d'environnement ADMIN_KEY est configurée
-// (c'est le cas en production).
-function requireAdminKey(req, res, next) {
-  if (!ADMIN_KEY) return next();
-  const provided = req.get("x-admin-key");
-  if (provided && provided === ADMIN_KEY) return next();
-  return res.status(401).json({ error: "Clé admin manquante ou invalide." });
-}
 
 // Le fichier live est retéléchargé depuis Supabase Storage à chaque requête :
 // toute modification de l'Excel (sync appliquée, édition manuelle re-uploadée)
@@ -145,7 +131,6 @@ app.get(
 
 app.post(
   "/api/settings",
-  requireAdminKey,
   wrap(async (req, res) => {
     const { driveLink } = req.body || {};
     if (typeof driveLink !== "string") return res.status(400).json({ error: "Lien invalide." });
@@ -183,7 +168,6 @@ app.get(
 
 app.post(
   "/api/sync/check-now",
-  requireAdminKey,
   wrap(async (req, res) => {
     try {
       res.json(await sync.checkNow());
@@ -195,7 +179,6 @@ app.post(
 
 app.post(
   "/api/sync/apply",
-  requireAdminKey,
   wrap(async (req, res) => {
     try {
       res.json(await sync.applyPending());
@@ -207,7 +190,6 @@ app.post(
 
 app.post(
   "/api/sync/dismiss",
-  requireAdminKey,
   wrap(async (req, res) => {
     res.json(await sync.dismissPending());
   })

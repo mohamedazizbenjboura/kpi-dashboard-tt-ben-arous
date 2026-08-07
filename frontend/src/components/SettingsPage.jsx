@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { fetchSettings, saveSettings, fetchSyncStatus, checkDriveNow, getAdminKey, setAdminKey } from "../lib/api";
+import { fetchSettings, saveSettings, fetchSyncStatus, checkDriveNow } from "../lib/api";
 import { relativeTime } from "../lib/format";
-import { IconCloudLink, IconCheckCircle, IconAlertTriangle, IconRefresh, IconLock } from "./icons";
+import { IconCloudLink, IconCheckCircle, IconAlertTriangle, IconRefresh } from "./icons";
 
 export default function SettingsPage({ onSaved }) {
   const [driveLink, setDriveLink] = useState("");
@@ -12,8 +12,6 @@ export default function SettingsPage({ onSaved }) {
   const [saveError, setSaveError] = useState("");
   const [checking, setChecking] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [adminKeyInput, setAdminKeyInput] = useState(() => getAdminKey());
-  const [keySaved, setKeySaved] = useState(false);
 
   async function refresh() {
     const [settings, syncStatus] = await Promise.all([fetchSettings(), fetchSyncStatus()]);
@@ -59,46 +57,8 @@ export default function SettingsPage({ onSaved }) {
 
   const dirty = driveLink.trim() !== savedLink;
 
-  function handleSaveKey(e) {
-    e.preventDefault();
-    setAdminKey(adminKeyInput.trim());
-    setKeySaved(true);
-    setTimeout(() => setKeySaved(false), 2000);
-  }
-
   return (
     <div className="flex flex-col gap-5 max-w-2xl">
-      <div className="card p-6 md:p-7">
-        <div className="flex items-center gap-2.5 mb-1.5">
-          <span className="h-8 w-8 rounded-xl flex items-center justify-center bg-[var(--color-brand-dim)] text-[var(--color-brand)]">
-            <IconLock size={16} />
-          </span>
-          <h2 className="text-[15px] font-semibold text-[var(--color-text)]">Clé admin</h2>
-        </div>
-        <p className="text-[12.5px] text-[var(--color-text-faint)] mb-5 leading-relaxed">
-          Requise pour modifier le lien Google Drive ou appliquer/ignorer une nouvelle version.
-          La consultation du tableau de bord reste libre pour tout le monde. Conservée uniquement
-          sur cet appareil (jamais envoyée sauf pour ces actions).
-        </p>
-        <form onSubmit={handleSaveKey} className="flex items-center gap-2.5">
-          <input
-            type="password"
-            value={adminKeyInput}
-            onChange={(e) => setAdminKeyInput(e.target.value)}
-            placeholder="Clé admin"
-            className="flex-1 rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-3.5 py-2.5 text-[13px] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] outline-none focus:border-[var(--color-brand)] transition-colors font-mono"
-          />
-          <motion.button
-            type="submit"
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-1.5 text-[12.5px] font-medium px-4 py-2.5 rounded-xl bg-[var(--color-brand)] text-white cursor-pointer transition-opacity"
-          >
-            {keySaved ? <IconCheckCircle size={14} /> : null}
-            {keySaved ? "Enregistrée" : "Enregistrer"}
-          </motion.button>
-        </form>
-      </div>
-
       <div className="card p-6 md:p-7">
         <div className="flex items-center gap-2.5 mb-1.5">
           <span className="h-8 w-8 rounded-xl flex items-center justify-center bg-[var(--color-brand-dim)] text-[var(--color-brand)]">
