@@ -265,9 +265,17 @@ async function startPolling() {
   await store.ensureSeeded();
 
   // Initialise le hash "live" au démarrage pour pouvoir détecter un écart dès le premier passage.
+  // hashContent() peut désormais lever une exception (fichier live corrompu
+  // ou illisible) : on ne doit surtout pas laisser ça planter le démarrage du
+  // serveur (rejet de promesse non intercepté dans le callback de app.listen).
   const settings = await store.readSettings();
   const liveBuffer = await store.downloadFile(store.KPIS_NAME);
-  const liveHash = liveBuffer ? hashContent(liveBuffer) : null;
+  let liveHash = settings.liveHash ?? null;
+  try {
+    liveHash = liveBuffer ? hashContent(liveBuffer) : null;
+  } catch (err) {
+    console.error("Fichier live illisible au démarrage, hash conservé tel quel :", err.message);
+  }
   if (liveHash !== settings.liveHash) await store.writeSettings({ ...settings, liveHash });
 
   const tick = async () => {
@@ -276,7 +284,10 @@ async function startPolling() {
       await checkNow().catch(() => {});
     }
     const fresh = await store.readSettings();
-    const interval = fresh.pollIntervalMs || 60000;
+    // 30000 = même valeur que DEFAULT_SETTINGS.pollIntervalMs (store.js) ;
+    // gardait auparavant un fallback à 60000 ici, incohérent avec le vrai
+    // défaut et donc trompeur pour diagnostiquer un écart de synchro.
+    const interval = fresh.pollIntervalMs || 30000;
     pollTimer = setTimeout(tick, interval);
   };
   pollTimer = setTimeout(tick, 3000);

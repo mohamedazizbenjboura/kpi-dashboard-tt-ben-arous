@@ -1,0 +1,33 @@
+# Empêche le backend Render (plan Free) de s'endormir après inactivité.
+#
+# Sur le plan Free, Render met le service en veille après ~15 minutes sans
+# requête, et le redémarrage à froid prend jusqu'à 30-50s. Pire : la boucle
+# de sondage Google Drive (backend/sync.js, setTimeout récursif) tourne dans
+# le process Node lui-même — quand le service dort, elle ne tourne PAS DU
+# TOUT, donc un changement fait sur le Sheet n'est détecté qu'au prochain
+# visiteur (d'où l'impression de synchro "en retard").
+#
+# Ce workflow appelle /api/health toutes les 10 minutes pour garder le
+# service éveillé en continu, afin que le sondage tourne réellement en
+# arrière-plan plutôt que seulement pendant les visites.
+#
+# Limite connue : GitHub Actions ne garantit pas une exécution à l'heure
+# pile pour les cron jobs (retard possible de quelques minutes en cas de
+# forte charge sur l'infra GitHub) — largement suffisant ici, mais ce n'est
+# pas un substitut à un vrai plan payant Render si une synchro quasi
+# temps réel est requise.
+name: Keep Render backend awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health
+        run: |
+          curl -fsS --max-time 20 https://tt-kpi-backend.onrender.com/api/health || \
+          curl -fsS --max-time 20 https://tt-kpi-backend.onrender.com/api/health

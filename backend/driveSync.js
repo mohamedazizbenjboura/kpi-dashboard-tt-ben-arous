@@ -132,21 +132,27 @@ function hashBuffer(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
 
+// IMPORTANT : ne JAMAIS retomber silencieusement sur hashBuffer(buffer) en cas
+// d'échec de parsing. Un export Google Sheets peut embarquer des métadonnées
+// différentes à chaque téléchargement (calcChain, horodatages internes) même
+// quand les données affichées n'ont pas changé : hasher les octets bruts dans
+// ce cas produisait un hash différent à CHAQUE vérification, donc une fausse
+// "nouvelle version" détectée en boucle (bannière qui réapparaît sans cesse,
+// y compris juste après un rafraîchissement de page). On hash uniquement le
+// contenu STRUCTURÉ (stable tant que les données affichées ne changent pas) ;
+// si le classeur ne peut pas être analysé du tout, on le signale comme une
+// vraie erreur plutôt que de fabriquer un hash instable.
 function hashContent(buffer) {
-  try {
-    const { sheets } = loadWorkbookFromBuffer(buffer, "hash-check");
-    const stable = sheets.map((s) => ({
-      sheetName: s.sheetName,
-      structured: s.structured,
-      categories: s.categories ?? null,
-      indicateurs: s.indicateurs ?? null,
-      scoreGlobal: s.scoreGlobal ?? null,
-      nombreIndicateurs: s.nombreIndicateurs ?? null,
-    }));
-    return crypto.createHash("sha256").update(JSON.stringify(stable)).digest("hex");
-  } catch {
-    return hashBuffer(buffer);
-  }
+  const { sheets } = loadWorkbookFromBuffer(buffer, "hash-check");
+  const stable = sheets.map((s) => ({
+    sheetName: s.sheetName,
+    structured: s.structured,
+    categories: s.categories ?? null,
+    indicateurs: s.indicateurs ?? null,
+    scoreGlobal: s.scoreGlobal ?? null,
+    nombreIndicateurs: s.nombreIndicateurs ?? null,
+  }));
+  return crypto.createHash("sha256").update(JSON.stringify(stable)).digest("hex");
 }
 
 module.exports = { extractFileId, downloadDriveFile, hashBuffer, hashContent };
