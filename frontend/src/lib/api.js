@@ -35,7 +35,13 @@ async function asJson(res) {
     } catch {
       /* ignore */
     }
-    throw new Error(msg);
+    const err = new Error(msg);
+    // Le status HTTP est conservé sur l'erreur pour que l'appelant puisse
+    // distinguer un 404 "aucun fichier chargé pour l'instant" (état normal
+    // au premier déploiement, avant qu'un lien Drive soit configuré) d'une
+    // vraie panne (backend injoignable, 500, etc.).
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }

@@ -195,38 +195,48 @@ async function applyPending() {
     throw new Error("Aucune nouvelle version en attente à appliquer.");
   }
   const liveBuffer = await store.downloadFile(store.KPIS_NAME);
-  if (!liveBuffer) {
-    throw new Error("Aucun fichier actif à archiver.");
-  }
 
   const now = new Date();
-  const stamp = now.toISOString().replace(/[:.]/g, "-");
-  const archivedName = `${store.HISTORY_PREFIX}kpis_${now.toISOString().slice(0, 7)}_${stamp}.xlsx`;
 
-  // 1. Archiver le fichier live actuel avant de le remplacer.
-  await store.uploadFile(archivedName, liveBuffer);
-  const archivedSummary = summarizeBuffer(liveBuffer, archivedName);
+  // Cas normal : un fichier live existe déjà, on l'archive avant de le
+  // remplacer (entrée d'historique pour la version qui vient d'être retirée).
+  //
+  // Cas "tout premier déploiement" : AUCUN fichier live n'existe encore
+  // (état normal juste après la mise en ligne, avant tout lien Drive
+  // configuré — voir DEPLOYMENT.md §3/§6). Il n'y a alors rien à archiver ni
+  // à "retirer" : on promeut simplement le fichier en attente comme premier
+  // fichier live, sans créer d'entrée d'historique fantôme. Avant ce
+  // correctif, ce cas déclenchait une erreur ("Aucun fichier actif à
+  // archiver.") qui bloquait précisément le tout premier chargement de
+  // données voulu : coller le lien Drive puis voir les chiffres apparaître.
+  if (liveBuffer) {
+    const stamp = now.toISOString().replace(/[:.]/g, "-");
+    const archivedName = `${store.HISTORY_PREFIX}kpis_${now.toISOString().slice(0, 7)}_${stamp}.xlsx`;
 
-  // 2. Promouvoir le fichier en attente comme nouveau fichier live.
+    await store.uploadFile(archivedName, liveBuffer);
+    const archivedSummary = summarizeBuffer(liveBuffer, archivedName);
+
+    // "month" est la PÉRIODE RÉELLE des données (déduite du nom de la feuille
+    // source, ex. "mai26" -> "Mai 2026"), PAS le mois où l'application a eu
+    // lieu. "appliedAt" reste l'horodatage exact de l'action (upload/sync).
+    const month = resolvePeriodLabel(archivedSummary?.sheetName, now);
+    await store.addHistoryEntry({
+      id: stamp,
+      appliedAt: now.toISOString(),
+      month,
+      fileName: archivedName,
+      scoreGlobal: archivedSummary?.scoreGlobal ?? null,
+      sheetName: archivedSummary?.sheetName ?? null,
+      nombreIndicateurs: archivedSummary?.nombreIndicateurs ?? null,
+    });
+  }
+
+  // Promouvoir le fichier en attente comme nouveau fichier live (premier
+  // fichier live si c'était le tout premier déploiement).
   await store.uploadFile(store.KPIS_NAME, pendingBuffer);
   await store.deleteFile(store.PENDING_NAME);
 
-  // 3. Enregistrer l'entrée d'historique pour la version qui vient d'être retirée.
-  //    "month" est la PÉRIODE RÉELLE des données (déduite du nom de la feuille
-  //    source, ex. "mai26" -> "Mai 2026"), PAS le mois où l'application a eu
-  //    lieu. "appliedAt" reste l'horodatage exact de l'action (upload/sync).
-  const month = resolvePeriodLabel(archivedSummary?.sheetName, now);
-  await store.addHistoryEntry({
-    id: stamp,
-    appliedAt: now.toISOString(),
-    month,
-    fileName: archivedName,
-    scoreGlobal: archivedSummary?.scoreGlobal ?? null,
-    sheetName: archivedSummary?.sheetName ?? null,
-    nombreIndicateurs: archivedSummary?.nombreIndicateurs ?? null,
-  });
-
-  // 4. Mettre à jour les paramètres (nouveau hash live, plus rien en attente).
+  // Mettre à jour les paramètres (nouveau hash live, plus rien en attente).
   const newLiveHash = hashBuffer(pendingBuffer);
   await store.writeSettings({
     ...settings,

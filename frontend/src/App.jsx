@@ -51,6 +51,12 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [sheets, setSheets] = useState([]);
   const [meta, setMeta] = useState(null);
+  // Vrai quand le backend répond mais qu'aucun classeur Excel n'a encore été
+  // chargé (404 sur /api/meta et /api/data) — état normal au tout premier
+  // déploiement, avant qu'un lien Google Drive soit configuré dans Paramètres.
+  // Ce n'est PAS une erreur : le tableau de bord doit rester utilisable
+  // (navigation, Paramètres) et s'afficher à zéro plutôt que planter.
+  const [noData, setNoData] = useState(false);
   const [sheetName, setSheetName] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [view, setView] = useState("overview"); // overview | category | settings | history
@@ -81,6 +87,7 @@ export default function App() {
       const [metaRes, dataRes] = await Promise.all([fetchMeta(), fetchData()]);
       setMeta(metaRes);
       setSheets(dataRes.sheets);
+      setNoData(false);
       setLastFetched(Date.now());
       setSheetName((prev) => {
         if (prev && dataRes.sheets.some((s) => s.sheetName === prev && s.structured)) return prev;
@@ -92,6 +99,18 @@ export default function App() {
         setTimeout(() => setPulse(false), 900);
       }
     } catch (err) {
+      if (err.status === 404) {
+        // Aucun classeur chargé côté backend pour l'instant : c'est l'état
+        // normal d'un premier déploiement, ou tant qu'aucun lien Drive n'a
+        // été enregistré dans Paramètres. On affiche un tableau de bord vide
+        // plutôt qu'un écran d'erreur qui bloquerait l'accès à Paramètres.
+        setMeta(null);
+        setSheets([]);
+        setNoData(true);
+        setLastFetched(Date.now());
+        setPhase("ready");
+        return;
+      }
       if (isInitial) {
         setErrorMsg(err.message);
         setPhase("error");
@@ -148,9 +167,13 @@ export default function App() {
   if (phase === "loading") return <LoadingScreen />;
   if (phase === "error") return <ErrorState message={errorMsg} onRetry={() => load(true)} />;
 
-  const sheet = archiveView ? archiveView.sheet : sheets.find((s) => s.sheetName === sheetName) ?? pickDefaultSheet(sheets);
+  const rawSheet = archiveView ? archiveView.sheet : sheets.find((s) => s.sheetName === sheetName) ?? pickDefaultSheet(sheets);
 
-  if (!sheet) {
+  // Un classeur chargé mais dans un format non reconnu reste une vraie erreur
+  // (rien à afficher, l'utilisateur doit corriger le fichier). L'absence TOTALE
+  // de fichier (noData, 404 backend) n'en est PAS une : on retombe sur un
+  // classeur vide pour que le tableau de bord s'affiche normalement, à zéro.
+  if (!rawSheet && !noData) {
     return (
       <ErrorState
         message="Le classeur ne contient aucune feuille dans un format reconnu."
@@ -158,6 +181,17 @@ export default function App() {
       />
     );
   }
+
+  const emptySheet = {
+    sheetName: null,
+    structured: false,
+    categories: [],
+    indicateurs: [],
+    scoreGlobal: null,
+    nombreIndicateurs: 0,
+  };
+  const sheet = rawSheet ?? emptySheet;
+  const showEmptyState = noData && !archiveView;
 
   const categories = sheet.categories ?? [];
   const activeCategory = categories.find((c) => c.categorie === selectedCategory) ?? null;
@@ -264,6 +298,25 @@ export default function App() {
 
           {(view === "overview" || view === "category") && (
             <PendingBanner pending={archiveView ? null : syncStatus?.pending} onApplied={handlePendingResolved} />
+          )}
+
+          {(view === "overview" || view === "category") && showEmptyState && (
+            <div className="card p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-[var(--color-text)]">Aucune donnée chargée pour l'instant</p>
+                <p className="text-[11.5px] text-[var(--color-text-faint)]">
+                  Le tableau de bord est vide car aucun lien Google Drive n'a encore été configuré. Ajoutez le
+                  lien du classeur Excel dans Paramètres pour afficher les KPIs.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={goSettings}
+                className="shrink-0 text-[12px] font-medium px-3.5 py-2 rounded-xl bg-[var(--color-brand)] text-white cursor-pointer transition-opacity"
+              >
+                Aller aux Paramètres
+              </button>
+            </div>
           )}
 
           {view === "settings" && (
