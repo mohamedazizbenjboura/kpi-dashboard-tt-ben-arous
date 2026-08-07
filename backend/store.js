@@ -37,7 +37,7 @@ const SEED_DIR = path.join(__dirname, "seed-data");
 const DEFAULT_SETTINGS = {
   driveLink: "",
   fileId: null,
-  pollIntervalMs: 60000,
+  pollIntervalMs: 30000,
   lastCheckedAt: null,
   lastError: null,
   liveHash: null,

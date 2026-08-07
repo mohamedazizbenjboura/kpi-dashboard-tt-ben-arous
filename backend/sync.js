@@ -13,7 +13,7 @@
  * local du serveur : sur Render (free tier) le disque est effacé à chaque
  * redéploiement/redémarrage, donc rien de durable ne peut y vivre.
  */
-const { extractFileId, downloadDriveFile, hashBuffer } = require("./driveSync");
+const { extractFileId, downloadDriveFile, hashContent } = require("./driveSync");
 const { loadWorkbookFromBuffer } = require("./parser");
 const store = require("./store");
 
@@ -129,9 +129,9 @@ async function checkNow() {
   checking = true;
   try {
     const buffer = await downloadDriveFile(fileId);
-    const newHash = hashBuffer(buffer);
+    const newHash = hashContent(buffer);
     const liveBuffer = await store.downloadFile(store.KPIS_NAME);
-    const liveHash = liveBuffer ? hashBuffer(liveBuffer) : null;
+    const liveHash = liveBuffer ? hashContent(liveBuffer) : null;
     const fresh = await store.readSettings(); // relire au cas où les paramètres ont changé pendant le téléchargement
 
     if (newHash === liveHash) {
@@ -237,7 +237,7 @@ async function applyPending() {
   await store.deleteFile(store.PENDING_NAME);
 
   // Mettre à jour les paramètres (nouveau hash live, plus rien en attente).
-  const newLiveHash = hashBuffer(pendingBuffer);
+  const newLiveHash = hashContent(pendingBuffer);
   await store.writeSettings({
     ...settings,
     liveHash: newLiveHash,
@@ -267,7 +267,7 @@ async function startPolling() {
   // Initialise le hash "live" au démarrage pour pouvoir détecter un écart dès le premier passage.
   const settings = await store.readSettings();
   const liveBuffer = await store.downloadFile(store.KPIS_NAME);
-  const liveHash = liveBuffer ? hashBuffer(liveBuffer) : null;
+  const liveHash = liveBuffer ? hashContent(liveBuffer) : null;
   if (liveHash !== settings.liveHash) await store.writeSettings({ ...settings, liveHash });
 
   const tick = async () => {

@@ -6,6 +6,7 @@
  */
 const https = require("https");
 const crypto = require("crypto");
+const { loadWorkbookFromBuffer } = require("./parser");
 
 // Accepte tous les formats de lien Drive courants, ou un ID brut.
 function extractFileId(link) {
@@ -31,7 +32,15 @@ function extractFileId(link) {
 function httpGet(url, cookieHeader, redirectsLeft = 6) {
   return new Promise((resolve, reject) => {
     const opts = {
-      headers: cookieHeader ? { Cookie: cookieHeader } : {},
+      headers: {
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+        // Empêche Google (ou un cache intermédiaire) de nous resservir une
+        // réponse mise en cache de l'export précédent : sans ça, une édition
+        // fraîche du Sheet peut mettre plusieurs minutes à apparaître dans les
+        // téléchargements, indépendamment de notre propre intervalle de poll.
+        "Cache-Control": "no-cache, no-store",
+        Pragma: "no-cache",
+      },
       timeout: 15000, // évite un "socket hang up" silencieux : on échoue proprement après 15s.
     };
     const req = https
@@ -71,7 +80,7 @@ async function downloadDriveFile(fileId) {
   //    générique (pensé pour un fichier binaire uploadé), inadapté à une
   //    feuille Google Sheets native.
   try {
-    const sheetsUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=xlsx`;
+    const sheetsUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=xlsx&_cb=${Date.now()}`;
     const sheetsResult = await httpGet(sheetsUrl);
     const sheetsContentType = sheetsResult.headers["content-type"] || "";
     if (
@@ -123,4 +132,21 @@ function hashBuffer(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
 
-module.exports = { extractFileId, downloadDriveFile, hashBuffer };
+function hashContent(buffer) {
+  try {
+    const { sheets } = loadWorkbookFromBuffer(buffer, "hash-check");
+    const stable = sheets.map((s) => ({
+      sheetName: s.sheetName,
+      structured: s.structured,
+      categories: s.categories ?? null,
+      indicateurs: s.indicateurs ?? null,
+      scoreGlobal: s.scoreGlobal ?? null,
+      nombreIndicateurs: s.nombreIndicateurs ?? null,
+    }));
+    return crypto.createHash("sha256").update(JSON.stringify(stable)).digest("hex");
+  } catch {
+    return hashBuffer(buffer);
+  }
+}
+
+module.exports = { extractFileId, downloadDriveFile, hashBuffer, hashContent };
