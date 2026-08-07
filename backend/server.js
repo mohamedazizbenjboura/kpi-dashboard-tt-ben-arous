@@ -12,6 +12,12 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
 const app = express();
 
+// Render (like most PaaS hosts) puts the app behind a reverse proxy, which
+// sets X-Forwarded-For. Without this, express-rate-limit can't safely derive
+// each client's real IP and throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on
+// every request. `1` = trust exactly one hop (Render's own proxy).
+app.set("trust proxy", 1);
+
 // --- Sécurité de base ---
 // En-têtes HTTP durcis (CSP désactivée : le frontend est servi séparément,
 // depuis Vercel, donc ce serveur n'a plus besoin d'autoriser ses propres
