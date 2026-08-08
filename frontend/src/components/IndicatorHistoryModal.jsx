@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { fetchHistory, fetchHistoryEntry } from "../lib/api";
 import { pct, num, statusMeta, titleCase } from "../lib/format";
@@ -8,6 +8,23 @@ import { IconX, IconClock } from "./icons";
 // Historique max de versions interrogées pour tracer la courbe d'un seul
 // indicateur (au-delà, on tronque pour éviter trop d'appels réseau).
 const MAX_VERSIONS = 20;
+
+// Courbes maison (skill design engineering) : entrée franche et rapide,
+// sortie plus courte encore — le popup ne doit jamais sembler flâner.
+const EASE_OUT = [0.23, 1, 0.32, 1];
+const EASE_IN = [0.4, 0, 1, 1];
+
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_IN } },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 14 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } },
+  exit: { opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.15, ease: EASE_IN } },
+};
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -84,32 +101,32 @@ export default function IndicatorHistoryModal({ indicator, currentPeriod, onClos
   const meta = statusMeta(indicator.status);
 
   return (
-    <AnimatePresence>
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      variants={overlayVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <motion.button
+        aria-label="Fermer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/55 backdrop-blur-[2px] cursor-pointer"
+      />
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        className="card relative w-full max-w-[640px] max-h-[88vh] overflow-y-auto p-5 md:p-7"
+        variants={cardVariants}
       >
-        <button
-          aria-label="Fermer"
-          onClick={onClose}
-          className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-        />
-        <motion.div
-          className="card relative w-full max-w-[640px] max-h-[88vh] overflow-y-auto p-5 md:p-7"
-          initial={{ opacity: 0, scale: 0.95, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 8 }}
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <button
+          <motion.button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 h-8 w-8 rounded-full flex items-center justify-center text-[var(--color-text-faint)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer"
+            whileHover={{ backgroundColor: "var(--color-surface-3)" }}
+            whileTap={{ scale: 0.88 }}
+            transition={{ duration: 0.12, ease: EASE_OUT }}
+            className="absolute top-4 right-4 h-8 w-8 rounded-full flex items-center justify-center text-[var(--color-text-faint)] hover:text-[var(--color-text)] cursor-pointer"
           >
             <IconX size={16} />
-          </button>
+          </motion.button>
 
           <div className="pr-10">
             <div className="tick text-[10.5px] text-[var(--color-text-faint)] mb-1">{titleCase(indicator.categorie)} · {titleCase(indicator.sousCategorie)}</div>
@@ -180,8 +197,7 @@ export default function IndicatorHistoryModal({ indicator, currentPeriod, onClos
             <LegendDot color="var(--color-good)" label="≥ 100% atteint" />
           </div>
         </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
 }
 

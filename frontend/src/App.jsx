@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchData, fetchMeta, fetchSyncStatus, fetchHistoryEntry } from "./lib/api";
 import { formatTimestamp } from "./lib/format";
+import { AnimatePresence } from "motion/react";
 import LoadingScreen from "./components/LoadingScreen";
 import ErrorState from "./components/ErrorState";
 import Sidebar from "./components/Sidebar";
@@ -254,13 +255,16 @@ export default function App() {
           onSelectHistory={goHistory}
           onSelectSettings={goSettings}
         />
-        {selectedIndicator && (
-          <IndicatorHistoryModal
-            indicator={selectedIndicator}
-            currentPeriod={sheet.sheetName}
-            onClose={() => setSelectedIndicator(null)}
-          />
-        )}
+        <AnimatePresence>
+          {selectedIndicator && (
+            <IndicatorHistoryModal
+              key={`${selectedIndicator.categorie}-${selectedIndicator.indicateur}`}
+              indicator={selectedIndicator}
+              currentPeriod={sheet.sheetName}
+              onClose={() => setSelectedIndicator(null)}
+            />
+          )}
+        </AnimatePresence>
       </>
     );
   }
@@ -410,13 +414,16 @@ export default function App() {
         )}
       </div>
 
-      {selectedIndicator && (
-        <IndicatorHistoryModal
-          indicator={selectedIndicator}
-          currentPeriod={sheet.sheetName}
-          onClose={() => setSelectedIndicator(null)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedIndicator && (
+          <IndicatorHistoryModal
+            key={`${selectedIndicator.categorie}-${selectedIndicator.indicateur}`}
+            indicator={selectedIndicator}
+            currentPeriod={sheet.sheetName}
+            onClose={() => setSelectedIndicator(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -98,6 +98,8 @@ export function GaugeRing({ ratio, color, size = 72, strokeWidth = 7 }) {
   );
 }
 
+const EASE_OUT = [0.23, 1, 0.32, 1];
+
 export function GaugeTile({ ind, onOpen, index = 0 }) {
   const meta = statusMeta(ind.status);
 
@@ -105,9 +107,11 @@ export function GaugeTile({ ind, onOpen, index = 0 }) {
     <motion.button
       type="button"
       onClick={() => onOpen?.(ind)}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, delay: Math.min(index * 0.012, 0.15) }}
+      initial={{ opacity: 0, y: 6, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: EASE_OUT, delay: Math.min(index * 0.02, 0.18) }}
+      whileHover={{ y: -2, transition: { duration: 0.14, ease: EASE_OUT } }}
+      whileTap={{ scale: 0.96, y: 0, transition: { duration: 0.1, ease: EASE_OUT } }}
       className="tt-kpi-tile"
       title={`Ouvrir ${titleCase(ind.indicateur)}`}
     >
@@ -142,9 +146,9 @@ export function AxisCard({ cat, onOpenIndicator, delay = 0 }) {
     <motion.section
       className="tt-axis-card"
       style={{ "--axis": color }}
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay }}
+      transition={{ duration: 0.26, ease: EASE_OUT, delay }}
     >
       <div className="tt-axis-head">
         <span className="tt-axis-icon"><Ico size={17} /></span>
@@ -347,6 +351,8 @@ function TTLogo({ compact = false }) {
 
 const TV_CSS = `
   .tt-tv-root {
+    --tt-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --tt-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
     --tt-blue:#173A9B;
     --tt-blue-2:#2457D6;
     --tt-purple:#7B1FE8;
@@ -565,12 +571,18 @@ const TV_CSS = `
     border-radius:15px;
     color:white;
     padding:clamp(9px,.8vw,14px);
-    background:linear-gradient(135deg,#6521E9 0%,#2457D6 55%,#0FA7E2 100%);
+    background:linear-gradient(135deg,#6521E9 0%,#2457D6 40%,#0FA7E2 70%,#20A64A 100%);
+    background-size:220% 220%;
+    animation:tt-score-drift 9s var(--tt-ease-in-out) infinite;
     box-shadow:0 8px 18px rgba(54,55,200,.14);
     display:flex;
     flex-direction:column;
     justify-content:center;
     min-width:0;
+  }
+  @keyframes tt-score-drift {
+    0%,100% { background-position:0% 30%; }
+    50% { background-position:100% 70%; }
   }
   .tt-eyebrow {
     font-size:clamp(8px,.58vw,10px);
@@ -694,10 +706,13 @@ const TV_CSS = `
     align-content:center;
     gap:2px;
     cursor:pointer;
-    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    transition:transform 160ms var(--tt-ease-out), box-shadow 160ms var(--tt-ease-out), border-color 160ms var(--tt-ease-out);
     color:#13255F;
   }
-  .tt-kpi-tile:hover { transform:translateY(-1px); border-color:#C8D2EB; box-shadow:0 4px 12px rgba(28,57,120,.08); }
+  @media (hover:hover) and (pointer:fine) {
+    .tt-kpi-tile:hover { transform:translateY(-2px); border-color:#C8D2EB; box-shadow:0 6px 16px rgba(28,57,120,.1); }
+  }
+  .tt-kpi-tile:active { transform:scale(.97); transition-duration:100ms; }
   .tt-gauge { width:clamp(45px,4.4vh,72px); height:clamp(45px,4.4vh,72px); position:relative; display:grid; place-items:center; }
   .tt-gauge svg { position:absolute; inset:0; width:100%; height:100%; }
   .tt-gauge span { position:relative; z-index:1; font-size:clamp(9px,1.05vh,14px); font-weight:900; }
@@ -972,16 +987,29 @@ export default function TVDashboard({
           </header>
 
           <section className="tt-summary">
-            <div className="tt-score">
+            <motion.div
+              className="tt-score"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.32, ease: EASE_OUT }}
+            >
               <span className="tt-eyebrow">Score global</span>
-              <span className="tt-score-value">{pct(scoreVal, 2)}</span>
+              <motion.span
+                key={scoreVal}
+                className="tt-score-value"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: EASE_OUT }}
+              >
+                {pct(scoreVal, 2)}
+              </motion.span>
               {delta !== null && (
                 <span className="tt-score-delta">
                   {delta >= 0 ? <IconTrendUp size={12} /> : <IconTrendDown size={12} />}
                   {delta >= 0 ? "+" : ""}{(delta * 100).toFixed(1)}% vs mois dernier
                 </span>
               )}
-            </div>
+            </motion.div>
 
             <StatusCard icon={IconTrendDown} label="Sous 80%" value={bad} share={share(bad)} color="#E31B2E" />
             <StatusCard icon={IconGauge} label="80% - 99.9%" value={warn} share={share(warn)} color="#F59B13" />
