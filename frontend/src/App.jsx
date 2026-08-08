@@ -1,46 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { fetchData, fetchMeta, fetchSyncStatus, fetchHistoryEntry } from "./lib/api";
-import { formatTimestamp, categoryStyle } from "./lib/format";
-import { buildInsights, buildAlerts } from "./lib/insights";
+import { formatTimestamp } from "./lib/format";
 import LoadingScreen from "./components/LoadingScreen";
 import ErrorState from "./components/ErrorState";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import TVDashboard from "./components/TVDashboard";
+import AxisDetailView from "./components/AxisDetailView";
 import IndicatorHistoryModal from "./components/IndicatorHistoryModal";
-import GlobalDial from "./components/GlobalDial";
-import StatCard from "./components/StatCard";
-import AxisRings from "./components/AxisRings";
-import AxisDonut from "./components/AxisDonut";
-import CategoryBreakdown from "./components/CategoryBreakdown";
-import CategoryDetail from "./components/CategoryDetail";
-import InsightsPanel from "./components/InsightsPanel";
-import AlertsPanel from "./components/AlertsPanel";
-import IndicatorTable from "./components/IndicatorTable";
-import OverviewStats from "./components/OverviewStats";
 import SettingsPage from "./components/SettingsPage";
 import HistoryPage from "./components/HistoryPage";
 import PendingBanner from "./components/PendingBanner";
-import {
-  IconGauge,
-  IconCart,
-  IconSignalTower,
-  IconCoins,
-  IconLayers,
-  IconHeart,
-} from "./components/icons";
 
 const POLL_MS = 15000;
 const SYNC_POLL_MS = 20000;
-const CATEGORY_ICON = {
-  cart: IconCart,
-  tower: IconSignalTower,
-  coins: IconCoins,
-  layers: IconLayers,
-  heart: IconHeart,
-  gauge: IconGauge,
-};
 
 function pickDefaultSheet(sheets) {
   const structured = sheets.filter((s) => s.structured);
@@ -63,7 +36,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   // La vue TV (tout-en-un, une seule page) est l'écran d'accueil par défaut :
   // c'est celle destinée à être affichée telle quelle sur un téléviseur connecté.
-  const [view, setView] = useState("tv"); // tv | overview | category | settings | history
+  const [view, setView] = useState("tv"); // tv | category | settings | history
   const [search, setSearch] = useState("");
   const [selectedIndicator, setSelectedIndicator] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
@@ -93,7 +66,7 @@ export default function App() {
     // affichage) : le thème sombre reste un choix possible sur les autres
     // vues, mais ne doit jamais s'appliquer à la vue TV, même si l'utilisateur
     // l'a activé précédemment ailleurs dans l'application.
-    document.documentElement.setAttribute("data-theme", view === "tv" ? "light" : theme);
+    document.documentElement.setAttribute("data-theme", view === "tv" || view === "category" ? "light" : theme);
     localStorage.setItem("tt-theme", theme);
   }, [theme, view]);
 
@@ -177,7 +150,7 @@ export default function App() {
       const res = await fetchHistoryEntry(entry.id);
       setArchiveView(res);
       setSelectedCategory(null);
-      setView("overview");
+      setView("tv");
       setSidebarOpen(false);
     } catch (err) {
       setArchiveError(err.message || "Impossible de charger cette version archivée.");
@@ -238,15 +211,6 @@ export default function App() {
   const attention = sheet.indicateurs?.filter((i) => i.status === "attention").length ?? 0;
   const critiques = sheet.indicateurs?.filter((i) => i.status === "critique").length ?? 0;
 
-  const insights = buildInsights(sheet);
-  const alerts = buildAlerts(sheet);
-
-  function goOverview() {
-    setView("overview");
-    setSelectedCategory(null);
-    setSidebarOpen(false);
-  }
-
   function goTV() {
     setView("tv");
     setSelectedCategory(null);
@@ -270,14 +234,15 @@ export default function App() {
     setSidebarOpen(false);
   }
 
+  const isTV = view === "tv" || view === "category";
+
   return (
-    <div className="min-h-screen flex bg-[var(--color-bg)]">
+    <div className={`flex bg-[var(--color-bg)] ${isTV ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <Sidebar
         categories={categories}
         activeCategory={selectedCategory}
         view={view}
         onSelectCategory={goCategory}
-        onSelectOverview={goOverview}
         onSelectTV={goTV}
         onSelectSettings={goSettings}
         onSelectHistory={goHistory}
@@ -287,17 +252,15 @@ export default function App() {
         onToggleCollapsed={toggleSidebarCollapsed}
       />
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className={`flex-1 min-w-0 flex flex-col ${isTV ? "h-screen overflow-hidden" : ""}`}>
         <TopBar
           title={
             archiveView
               ? `ARCHIVE — ${archiveView.entry.month.toUpperCase()}`
               : view === "tv"
-              ? "TABLEAU DE BORD KPI — VUE TV"
-              : view === "overview"
-              ? "TABLEAU DE BORD KPI"
+              ? "CENTRE DE PILOTAGE KPI"
               : view === "category"
-              ? "DÉTAIL DE L'AXE"
+              ? (activeCategory ? activeCategory.categorie.toUpperCase() : "DÉTAIL DE L'AXE")
               : view === "settings"
               ? "PARAMÈTRES"
               : "HISTORIQUE"
@@ -306,9 +269,9 @@ export default function App() {
             archiveView
               ? `Appliqué le ${formatTimestamp(new Date(archiveView.entry.appliedAt).getTime())} — lecture seule`
               : view === "tv"
-              ? "Vue complète en une page — Direction Régionale Ben Arous"
-              : view === "overview"
-              ? "Vue d'ensemble de la performance — Direction Régionale Ben Arous"
+              ? "VUE TV - TOUTES LES PERFORMANCES EN UN COUP D'ŒIL"
+              : view === "category"
+              ? "VUE TV - DÉTAIL DE L'AXE DE PILOTAGE"
               : "Direction Régionale Ben Arous"
           }
           search={search}
@@ -318,11 +281,17 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenSidebar={() => setSidebarOpen(true)}
-          hideControls={view === "tv"}
+          hideControls={isTV}
         />
 
-        <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 md:px-7 py-6 flex flex-col gap-5">
-          {(view === "tv" || view === "overview" || view === "category") && archiveView && (
+        <main
+          className={
+            isTV
+              ? "flex-1 min-h-0 overflow-hidden w-full max-w-[2000px] mx-auto px-4 md:px-6 py-3 flex flex-col gap-3"
+              : "flex-1 w-full max-w-[1400px] mx-auto px-4 md:px-7 py-6 flex flex-col gap-5"
+          }
+        >
+          {isTV && archiveView && (
             <div
               className="card p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4"
               style={{ borderColor: "var(--color-brand)" }}
@@ -347,11 +316,11 @@ export default function App() {
             </div>
           )}
 
-          {(view === "tv" || view === "overview" || view === "category") && (
+          {isTV && (
             <PendingBanner pending={archiveView ? null : syncStatus?.pending} onApplied={handlePendingResolved} />
           )}
 
-          {(view === "tv" || view === "overview" || view === "category") && showEmptyState && (
+          {isTV && showEmptyState && (
             <div className="card p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-[var(--color-text)]">Aucune donnée chargée pour l'instant</p>
@@ -408,89 +377,22 @@ export default function App() {
             />
           )}
 
-          {(view === "overview" || view === "category") && (
-            <>
-          {/* Key numbers — the first thing anyone reads in a meeting */}
-          <OverviewStats total={totalIndicateurs} atteints={atteints} attention={attention} critiques={critiques} />
-
-          {/* Top score row */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-            <StatCard
-              label="Score global"
-              value={(sheet.scoreGlobal ?? 0) * 100}
-              icon={IconGauge}
-              color="var(--color-brand)"
-              delta={(sheet.scoreGlobal ?? 0) - 1}
-              objective={1}
-              index={0}
-            />
-            {categories.map((c, i) => {
-              const style = categoryStyle(c.categorie);
-              const Ico = CATEGORY_ICON[style.icon] ?? IconGauge;
-              return (
-                <StatCard
-                  key={c.categorie}
-                  label={c.categorie}
-                  value={(c.tauxMoyenPondere ?? 0) * 100}
-                  icon={Ico}
-                  color={style.color}
-                  delta={(c.tauxMoyenPondere ?? 0) - 1}
-                  objective={1}
-                  index={i + 1}
-                />
-              );
-            })}
-          </div>
-
-          {view === "overview" ? (
-            <>
-              {/* Global performance + axis chart + insights/alerts */}
-              <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_320px] gap-5 items-stretch">
-                <div className="card p-6 flex items-center justify-center">
-                  <GlobalDial score={sheet.scoreGlobal} period={sheet.sheetName} />
-                </div>
-                <CategoryBreakdown categories={categories} selected={selectedCategory} onSelect={goCategory} />
-                <div className="flex flex-col gap-5">
-                  <InsightsPanel items={insights} />
-                  <AlertsPanel alerts={alerts} />
-                </div>
-              </div>
-
-              {/* Axis rings + distribution donut */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">
-                <AxisRings categories={categories} onSelect={goCategory} selected={selectedCategory} />
-                <AxisDonut categories={categories} />
-              </div>
-
-              {/* Flat indicator table */}
-              <IndicatorTable indicateurs={sheet.indicateurs ?? []} search={search} limit={12} onSelect={setSelectedIndicator} />
-            </>
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeCategory?.categorie ?? "empty"}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <CategoryDetail category={activeCategory} />
-              </motion.div>
-            </AnimatePresence>
-          )}
-            </>
+          {view === "category" && (
+            <AxisDetailView category={activeCategory} onOpenIndicator={setSelectedIndicator} />
           )}
         </main>
 
-        <footer className="border-t border-[var(--color-border-soft)] mt-2">
-          <div className="max-w-[1400px] mx-auto px-4 md:px-7 py-5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-text-faint)]">
-            <span>
-              Source : <span className="font-mono text-[var(--color-text-dim)]">{meta?.fileName ?? "kpis.xlsx"}</span>
-              {" · "}modifié {formatTimestamp(meta?.lastModified)}
-            </span>
-            <span>© {new Date().getFullYear()} Tunisie Telecom — Centre de pilotage KPI</span>
-          </div>
-        </footer>
+        {!isTV && (
+          <footer className="border-t border-[var(--color-border-soft)] mt-2">
+            <div className="max-w-[1400px] mx-auto px-4 md:px-7 py-5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-text-faint)]">
+              <span>
+                Source : <span className="font-mono text-[var(--color-text-dim)]">{meta?.fileName ?? "kpis.xlsx"}</span>
+                {" · "}modifié {formatTimestamp(meta?.lastModified)}
+              </span>
+              <span>© {new Date().getFullYear()} Tunisie Telecom — Centre de pilotage KPI</span>
+            </div>
+          </footer>
+        )}
       </div>
 
       {selectedIndicator && (

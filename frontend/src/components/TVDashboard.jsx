@@ -1,5 +1,10 @@
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { pct, num, statusMeta, titleCase, categoryStyle } from "../lib/format";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
+import { pct, num, titleCase, statusMeta, categoryStyle } from "../lib/format";
+import { buildAlerts } from "../lib/insights";
+import { fetchHistory } from "../lib/api";
 import {
   IconGauge,
   IconCart,
@@ -9,6 +14,8 @@ import {
   IconHeart,
   IconCheckCircle,
   IconAlertTriangle,
+  IconTrendDown,
+  IconTrendUp,
 } from "./icons";
 
 const CATEGORY_ICON = {
@@ -20,27 +27,50 @@ const CATEGORY_ICON = {
   gauge: IconGauge,
 };
 
-// Small arc gauge used inside every indicator tile — 0-100%+ scale, but the
-// stroke itself is clamped to a full circle at 100% so an over-achieved
-// indicator (>100%) doesn't overflow visually; the number below still shows
-// the real value.
-function MiniGauge({ ratio, color, size = 56 }) {
-  const r = (size - 9) / 2;
+// Palette d'axe spécifique à la vue TV (distincte de categoryStyle() utilisée
+// ailleurs dans l'appli) : bleu / vert / violet / or, pour coller à la charte
+// demandée pour l'affichage téléviseur.
+const AXIS_COLOR = [
+  { test: (n) => n.includes("commerc"), color: "var(--color-blue)" },
+  { test: (n) => n.includes("techn"), color: "var(--color-teal)" },
+  { test: (n) => n.includes("strateg") || n.includes("stratég"), color: "var(--color-violet)" },
+  { test: (n) => n.includes("financ"), color: "var(--color-gold)" },
+];
+function normalizeKey(str) {
+  return String(str ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+export function axisColor(categorie) {
+  const n = normalizeKey(categorie);
+  return AXIS_COLOR.find((c) => c.test(n))?.color ?? "var(--color-brand)";
+}
+
+// Un indicateur "suivi" a un poids/taux renseigné (poids=0 & métriques vides
+// = ligne non pilotée dans le classeur source, volontairement absente de la
+// vue TV, comme du décompte "Total indicateurs").
+export function isTracked(ind) {
+  return ind.status !== "inconnu";
+}
+
+export function GaugeRing({ ratio, color, size, strokeWidth }) {
+  const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.min(Math.max(ratio ?? 0, 0), 1));
+  const off = circ * (1 - Math.min(Math.max(ratio ?? 0, 0), 1));
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-surface-3)" strokeWidth={6} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-surface-3)" strokeWidth={strokeWidth} />
       <circle
         cx={size / 2}
         cy={size / 2}
         r={r}
         fill="none"
         stroke={color}
-        strokeWidth={6}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={circ}
-        strokeDashoffset={offset}
+        strokeDashoffset={off}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: "stroke-dashoffset 700ms cubic-bezier(.16,1,.3,1)" }}
       />
@@ -48,159 +78,261 @@ function MiniGauge({ ratio, color, size = 56 }) {
   );
 }
 
-function IndicatorTile({ ind, onOpen, index }) {
+export function GaugeTile({ ind, size, onOpen, index }) {
   const meta = statusMeta(ind.status);
   return (
     <motion.button
       type="button"
-      onClick={() => onOpen(ind)}
-      initial={{ opacity: 0, y: 6 }}
+      onClick={() => onOpen?.(ind)}
+      initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.015, 0.4) }}
-      className="tv-tile text-left cursor-pointer"
-      style={{ "--tile-color": meta.color }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.02, 0.3) }}
+      className="tv2-tile cursor-pointer"
     >
-      <MiniGauge ratio={ind.tauxRealisation} color={meta.color} />
-      <div className="min-w-0 flex-1">
-        <div className="tv-tile-name" title={titleCase(ind.indicateur)}>
-          {titleCase(ind.indicateur)}
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="tv-tile-sub">
-            Obj {ind.objectifYTD !== null ? num(ind.objectifYTD, ind.objectifYTD % 1 === 0 ? 0 : 1) : "—"} · Réal{" "}
-            {ind.realisationYTD !== null ? num(ind.realisationYTD, ind.realisationYTD % 1 === 0 ? 0 : 1) : "—"}
-          </span>
-        </div>
-        <div className="tv-tile-score" style={{ color: meta.color }}>
+      <div className="tv2-tile-ring" style={{ width: size, height: size }}>
+        <GaugeRing ratio={ind.tauxRealisation} color={meta.color} size={size} strokeWidth={Math.max(6, size * 0.11)} />
+        <span className="tv2-tile-pct" style={{ color: meta.color, fontSize: size * 0.22 }}>
           {ind.tauxRealisation !== null ? pct(ind.tauxRealisation, 1) : "—"}
+        </span>
+      </div>
+      <div className="tv2-tile-name" title={titleCase(ind.indicateur)}>
+        {titleCase(ind.indicateur)}
+      </div>
+      <div className="tv2-tile-stats">
+        <div className="tv2-tile-stat">
+          <span>Objectif</span>
+          <b>{ind.objectifYTD !== null ? num(ind.objectifYTD, ind.objectifYTD % 1 === 0 ? 0 : 1) : "—"}</b>
+        </div>
+        <div className="tv2-tile-stat">
+          <span>Réalisation</span>
+          <b>{ind.realisationYTD !== null ? num(ind.realisationYTD, ind.realisationYTD % 1 === 0 ? 0 : 1) : "—"}</b>
         </div>
       </div>
     </motion.button>
   );
 }
 
-function AxisSection({ cat, onOpenIndicator, delay }) {
-  const style = categoryStyle(cat.categorie);
-  const Ico = CATEGORY_ICON[style.icon] ?? IconGauge;
-  const meta = statusMeta(cat.status);
-  const allIndicateurs = cat.sousCategories.flatMap((sc) => sc.indicateurs.map((i) => ({ ...i, categorie: cat.categorie, sousCategorie: sc.sousCategorie })));
+export function AxisCard({ cat, onOpenIndicator, delay }) {
+  const color = axisColor(cat.categorie);
+  const Ico = CATEGORY_ICON[categoryStyle(cat.categorie).icon] ?? IconGauge;
+  const tracked = cat.sousCategories.flatMap((sc) => sc.indicateurs).filter(isTracked);
+  const cols = tracked.length <= 2 ? 1 : tracked.length <= 4 ? 2 : 3;
+  const size = cols === 1 ? 88 : cols === 2 ? 74 : 58;
 
   return (
     <motion.section
-      className="tv-axis"
-      style={{ "--axis-color": style.color }}
-      initial={{ opacity: 0, y: 10 }}
+      className="tv2-axis-card"
+      style={{ "--axis-color": color }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay }}
+      transition={{ duration: 0.3, delay }}
     >
-      <div className="tv-axis-header">
-        <span className="tv-axis-icon" style={{ background: `${style.color}1c`, color: style.color }}>
-          <Ico size={16} />
+      <div className="tv2-axis-head">
+        <span className="tv2-axis-icon" style={{ background: `${color}1c`, color }}>
+          <Ico size={15} />
         </span>
-        <span className="tv-axis-title">{titleCase(cat.categorie)}</span>
-        <span className="tv-axis-count">{allIndicateurs.length} indic.</span>
-        <span className="tv-axis-score" style={{ color: meta.color }}>
-          {cat.tauxMoyenPondere !== null ? pct(cat.tauxMoyenPondere, 1) : "—"}
+        <span className="tv2-axis-title" style={{ color }}>
+          {titleCase(cat.categorie)}
         </span>
       </div>
-      <div className="tv-axis-grid">
-        {allIndicateurs.map((ind, i) => (
-          <IndicatorTile key={`${ind.sousCategorie}-${ind.indicateur}-${i}`} ind={ind} onOpen={onOpenIndicator} index={i} />
+      <div className={`tv2-axis-grid tv2-cols-${cols}`}>
+        {tracked.map((ind, i) => (
+          <GaugeTile key={`${ind.sousCategorie}-${ind.indicateur}-${i}`} ind={ind} size={size} onOpen={onOpenIndicator} index={i} />
         ))}
-        {allIndicateurs.length === 0 && (
-          <div className="text-[12px] text-[var(--color-text-faint)] py-3">Aucun indicateur sur cet axe.</div>
-        )}
+        {tracked.length === 0 && <div className="text-[11px] text-[var(--color-text-faint)] py-4">Aucun indicateur suivi.</div>}
       </div>
     </motion.section>
   );
 }
 
-// Vue "TV" — pensée pour être affichée telle quelle sur un téléviseur connecté :
-// une seule page, tout le classeur (tous les axes, tous les indicateurs) y
-// tient, avec le barème de couleur (rouge < 80% / orange 80-99.9% / vert >=
-// 100%) rappelé en légende. Cliquer un indicateur ouvre son historique en pop-up.
-// Cette vue est volontairement forcée en thème clair (data-theme="light") :
-// le fond noir a été explicitement écarté par l'encadrant pour l'affichage TV.
-export default function TVDashboard({ sheet, categories, scoreGlobal, period, total, atteints, attention, critiques, onOpenIndicator }) {
-  const globalMeta = statusMeta(scoreGlobal !== null && scoreGlobal >= 1 ? "atteint" : scoreGlobal >= 0.8 ? "attention" : "critique");
-  const globalRatio = scoreGlobal ?? 0;
-
+export function MiniStatRow({ icon: Ico, color, label, value }) {
   return (
-    <div className="tv-page" data-theme="light">
-      <div className="tv-strip">
-        <span className="tick text-[11px] text-[var(--color-text-dim)] whitespace-nowrap">Direction Régionale Ben Arous</span>
-        <span className="tv-strip-bar" />
-        {period && (
-          <span className="tick text-[11px] text-[var(--color-text-faint)] whitespace-nowrap">Période · {period}</span>
+    <div className="tv2-ministat-row">
+      <span className="tv2-ministat-icon" style={{ background: `${color}1c`, color }}>
+        <Ico size={13} />
+      </span>
+      <span className="tv2-ministat-label">{label}</span>
+      <span className="tv2-ministat-value" style={{ color }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+export function DistributionDonut({ good, warn, bad, total, size = 118, label = "INDICATEURS", children }) {
+  const data = [
+    { key: "bad", value: bad, color: "var(--color-bad)" },
+    { key: "warn", value: warn, color: "var(--color-warn)" },
+    { key: "good", value: good, color: "var(--color-good)" },
+  ].filter((d) => d.value > 0);
+  return (
+    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <PieChart width={size} height={size}>
+        <Pie data={data.length ? data : [{ key: "empty", value: 1, color: "var(--color-surface-3)" }]} dataKey="value" innerRadius={size * 0.34} outerRadius={size * 0.49} paddingAngle={3} strokeWidth={0} startAngle={90} endAngle={-270}>
+          {(data.length ? data : [{ color: "var(--color-surface-3)" }]).map((d, i) => (
+            <Cell key={i} fill={d.color} />
+          ))}
+        </Pie>
+      </PieChart>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        {children ?? (
+          <>
+            <span className="font-mono font-bold text-[var(--color-text)]" style={{ fontSize: size * 0.19 }}>
+              {total}
+            </span>
+            <span className="tick text-[8px] text-[var(--color-text-faint)]">{label}</span>
+          </>
         )}
       </div>
+    </div>
+  );
+}
 
-      <div className="tv-hero">
-        <div className="tv-hero-score card">
-          <div className="tv-hero-score-ring">
-            <svg viewBox="0 0 160 160" className="w-full h-full">
-              <defs>
-                <linearGradient id="tvScoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="var(--color-blue)" />
-                  <stop offset="35%" stopColor="var(--color-violet)" />
-                  <stop offset="60%" stopColor="var(--color-magenta)" />
-                  <stop offset="80%" stopColor="var(--color-brand)" />
-                  <stop offset="100%" stopColor="var(--color-gold)" />
-                </linearGradient>
-              </defs>
-              <circle cx="80" cy="80" r="68" fill="none" stroke="var(--color-surface-3)" strokeWidth="13" />
-              <circle
-                cx="80"
-                cy="80"
-                r="68"
-                fill="none"
-                stroke="url(#tvScoreGradient)"
-                strokeWidth="13"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 68}
-                strokeDashoffset={2 * Math.PI * 68 * (1 - Math.min(globalRatio, 1))}
-                transform="rotate(-90 80 80)"
-                style={{ transition: "stroke-dashoffset 900ms cubic-bezier(.16,1,.3,1)" }}
-              />
-              <text x="80" y="76" textAnchor="middle" fontFamily="var(--font-display)" fontSize="31" fontWeight="700" fill="var(--color-text)">
-                {(globalRatio * 100).toFixed(1)}%
-              </text>
-              <text x="80" y="97" textAnchor="middle" fontFamily="var(--font-display)" fontSize="9" letterSpacing="1.4" fill="var(--color-text-faint)">
-                SCORE RÉGIONAL
-              </text>
-            </svg>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <span
-              className="tick text-[10.5px] px-2.5 py-1 rounded-full border"
-              style={{ color: globalMeta.color, borderColor: globalMeta.color, background: globalMeta.dim }}
-            >
-              {globalMeta.label}
+function EvolutionChart({ scoreGlobal, sheetName }) {
+  const [history, setHistory] = useState(null);
+  useEffect(() => {
+    fetchHistory()
+      .then(setHistory)
+      .catch(() => setHistory([]));
+  }, []);
+
+  const data = useMemo(() => {
+    const entries = [...(history ?? [])].reverse().map((e) => ({ month: e.month, scoreGlobal: e.scoreGlobal }));
+    // Ajoute le point "live" (feuille actuellement affichée) s'il n'apparaît pas déjà.
+    if (sheetName && scoreGlobal !== null && scoreGlobal !== undefined) {
+      const last = entries[entries.length - 1];
+      if (!last || last.scoreGlobal !== scoreGlobal) {
+        entries.push({ month: sheetName, scoreGlobal });
+      }
+    }
+    return entries;
+  }, [history, sheetName, scoreGlobal]);
+
+  if (history === null) {
+    return <div className="flex-1 flex items-center justify-center text-[11px] text-[var(--color-text-faint)]">Chargement…</div>;
+  }
+
+  if (data.length < 2) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-[11px] text-[var(--color-text-faint)] text-center px-4">
+        Pas assez de versions archivées pour tracer une évolution.
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 6, right: 10, bottom: 0, left: -18 }}>
+        <XAxis dataKey="month" tick={{ fill: "var(--color-text-faint)", fontSize: 9.5 }} axisLine={{ stroke: "var(--color-border)" }} tickLine={false} />
+        <YAxis
+          domain={[0, "dataMax"]}
+          tickFormatter={(v) => `${Math.round(v * 100)}%`}
+          tick={{ fill: "var(--color-text-faint)", fontSize: 9.5, fontFamily: "var(--font-mono)" }}
+          axisLine={false}
+          tickLine={false}
+          width={36}
+        />
+        <Tooltip
+          formatter={(v) => pct(v, 1)}
+          contentStyle={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border-soft)",
+            borderRadius: 10,
+            fontSize: 11,
+          }}
+        />
+        <Line
+          type="monotone"
+          dataKey="scoreGlobal"
+          stroke="var(--color-blue)"
+          strokeWidth={2.2}
+          dot={{ r: 3, fill: "var(--color-blue)", strokeWidth: 0 }}
+          activeDot={{ r: 4.5 }}
+          connectNulls
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Vue "TV" — pensée pour être affichée telle quelle sur un téléviseur connecté :
+// une seule page, sans défilement, tout le classeur (tous les axes, tous les
+// indicateurs suivis) y tient — score global, barème, répartition par axe,
+// score régional, évolution, alertes. Cliquer un indicateur ouvre son
+// historique en pop-up. Cette vue est volontairement forcée en thème clair.
+export default function TVDashboard({ sheet, categories, scoreGlobal, period, onOpenIndicator }) {
+  const trackedAll = (sheet.indicateurs ?? []).filter(isTracked);
+  const total = trackedAll.length;
+  const good = trackedAll.filter((i) => i.status === "atteint").length; // >= 100%
+  const warn = trackedAll.filter((i) => i.status === "attention").length; // 80–99.9%
+  const bad = trackedAll.filter((i) => i.status === "critique").length; // < 80%
+
+  const [history, setHistory] = useState(null);
+  useEffect(() => {
+    fetchHistory()
+      .then(setHistory)
+      .catch(() => setHistory([]));
+  }, []);
+
+  const delta = useMemo(() => {
+    if (!history || history.length < 2) return null;
+    const chrono = [...history].reverse();
+    const last = chrono[chrono.length - 1];
+    const prev = chrono[chrono.length - 2];
+    if (last?.scoreGlobal == null || prev?.scoreGlobal == null) return null;
+    return last.scoreGlobal - prev.scoreGlobal;
+  }, [history]);
+
+  const alerts = buildAlerts(sheet);
+  const scoreVal = scoreGlobal ?? 0;
+
+  return (
+    <div className="tv2-page">
+      {/* ---- Ligne 1 : score global, barème, statut des indicateurs ---- */}
+      <div className="tv2-hero">
+        <div className="tv2-score-card">
+          <span className="tick text-[10px] text-white/75">Score global</span>
+          <span className="tv2-score-value">{pct(scoreVal, 2)}</span>
+          {delta !== null && (
+            <span className="tv2-score-delta">
+              {delta >= 0 ? <IconTrendUp size={13} /> : <IconTrendDown size={13} />}
+              {delta >= 0 ? "+" : ""}
+              {(delta * 100).toFixed(1)}% vs mois dernier
             </span>
-          </div>
+          )}
         </div>
 
-        <div className="tv-hero-stats card">
-          <StatRow icon={IconCheckCircle} color="var(--color-good)" label="Indicateurs conformes" value={atteints} total={total} />
-          <StatRow icon={IconAlertTriangle} color="var(--color-warn)" label="En vigilance" value={attention} total={total} />
-          <StatRow icon={IconAlertTriangle} color="var(--color-bad)" label="Critiques" value={critiques} total={total} />
-          <div className="tv-stat-row tv-stat-total">
-            <span className="tv-stat-label">Total indicateurs</span>
-            <span className="tv-stat-value">{total}</span>
-          </div>
+        <div className="tv2-mini-card" style={{ "--mini-color": "var(--color-bad)" }}>
+          <span className="tv2-mini-icon"><IconTrendDown size={16} /></span>
+          <span className="tv2-mini-label">Sous 80%</span>
+          <span className="tv2-mini-value">{bad}</span>
+          <span className="tv2-mini-share">{total > 0 ? ((bad / total) * 100).toFixed(2) : "0.00"}%</span>
+        </div>
+        <div className="tv2-mini-card" style={{ "--mini-color": "var(--color-warn)" }}>
+          <span className="tv2-mini-icon"><IconGauge size={16} /></span>
+          <span className="tv2-mini-label">80% - 99.9%</span>
+          <span className="tv2-mini-value">{warn}</span>
+          <span className="tv2-mini-share">{total > 0 ? ((warn / total) * 100).toFixed(2) : "0.00"}%</span>
+        </div>
+        <div className="tv2-mini-card" style={{ "--mini-color": "var(--color-good)" }}>
+          <span className="tv2-mini-icon"><IconCheckCircle size={16} /></span>
+          <span className="tv2-mini-label">100% et plus</span>
+          <span className="tv2-mini-value">{good}</span>
+          <span className="tv2-mini-share">{total > 0 ? ((good / total) * 100).toFixed(2) : "0.00"}%</span>
         </div>
 
-        <div className="tv-hero-legend card">
-          <span className="tick text-[10px] text-[var(--color-text-faint)] mb-1 block">Barème</span>
-          <LegendRow color="var(--color-bad)" label="Sous 80%" />
-          <LegendRow color="var(--color-warn)" label="80% à 99,9%" />
-          <LegendRow color="var(--color-good)" label="100% et plus" />
+        <div className="tv2-conform-card">
+          <MiniStatRow icon={IconCheckCircle} color="var(--color-good)" label="Indicateurs conformes" value={good} />
+          <MiniStatRow icon={IconAlertTriangle} color="var(--color-warn)" label="Indicateurs en vigilance" value={warn} />
+          <MiniStatRow icon={IconTrendDown} color="var(--color-bad)" label="Indicateurs critiques" value={bad} />
+          <MiniStatRow icon={IconLayers} color="var(--color-blue)" label="Total indicateurs" value={total} />
         </div>
       </div>
 
-      <div className="tv-axes">
+      {/* ---- Ligne 2 : les 4 axes, tous les indicateurs suivis ---- */}
+      <div className="tv2-axes-row">
         {categories.map((cat, i) => (
-          <AxisSection key={cat.categorie} cat={cat} onOpenIndicator={onOpenIndicator} delay={i * 0.05} />
+          <AxisCard key={cat.categorie} cat={cat} onOpenIndicator={onOpenIndicator} delay={i * 0.04} />
         ))}
         {categories.length === 0 && (
           <div className="card p-6 text-center text-[13px] text-[var(--color-text-faint)]">
@@ -208,31 +340,91 @@ export default function TVDashboard({ sheet, categories, scoreGlobal, period, to
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-function StatRow({ icon: Ico, color, label, value, total }) {
-  const share = total > 0 ? Math.round(((value ?? 0) / total) * 100) : 0;
-  return (
-    <div className="tv-stat-row">
-      <span className="tv-stat-icon" style={{ background: `${color}1c`, color }}>
-        <Ico size={15} />
-      </span>
-      <span className="tv-stat-label">{label}</span>
-      <span className="tv-stat-value" style={{ color }}>
-        {value ?? 0}
-      </span>
-      <span className="tv-stat-share">{share}%</span>
-    </div>
-  );
-}
+      {/* ---- Ligne 3 : score régional, évolution, alertes, répartition ---- */}
+      <div className="tv2-bottom-row">
+        <div className="tv2-bottom-card">
+          <span className="tick text-[10.5px]" style={{ color: "var(--color-violet)" }}>
+            Score régional
+          </span>
+          <div className="tv2-regional-body">
+            <DistributionDonut good={good} warn={warn} bad={bad} total={total} size={104}>
+              <span className="font-mono font-bold text-[16px] text-[var(--color-text)]">{pct(scoreVal, 2)}</span>
+            </DistributionDonut>
+            <div className="tv2-regional-list">
+              <MiniStatRow icon={IconCheckCircle} color="var(--color-good)" label="Indicateurs conformes" value={good} />
+              <MiniStatRow icon={IconAlertTriangle} color="var(--color-warn)" label="Indicateurs en vigilance" value={warn} />
+              <MiniStatRow icon={IconTrendDown} color="var(--color-bad)" label="Indicateurs critiques" value={bad} />
+              <MiniStatRow icon={IconLayers} color="var(--color-blue)" label="Total indicateurs" value={total} />
+            </div>
+          </div>
+        </div>
 
-function LegendRow({ color, label }) {
-  return (
-    <div className="tv-legend-row">
-      <span className="tv-legend-swatch" style={{ background: color, "--sw-color": color }} />
-      {label}
+        <div className="tv2-bottom-card">
+          <span className="tick text-[10.5px] text-[var(--color-text-dim)]">Évolution du score global</span>
+          <div className="flex-1 min-h-0 mt-1">
+            <EvolutionChart scoreGlobal={scoreGlobal} sheetName={period} />
+          </div>
+        </div>
+
+        <div className="tv2-bottom-card">
+          <span className="tick text-[10.5px]" style={{ color: "var(--color-bad)" }}>
+            Dernières alertes
+          </span>
+          <div className="tv2-alerts-list">
+            {alerts.length === 0 && <div className="text-[11px] text-[var(--color-text-faint)] py-3">Aucune alerte — tous les indicateurs suivis sont conformes.</div>}
+            {alerts.map((a, i) => {
+              const meta = statusMeta(a.status);
+              return (
+                <div key={i} className="tv2-alert-row">
+                  <span style={{ color: meta.color }}>
+                    <IconAlertTriangle size={13} />
+                  </span>
+                  <span className="tv2-alert-name" title={titleCase(a.indicateur)}>
+                    {titleCase(a.indicateur)}
+                  </span>
+                  <span className="tv2-alert-pct" style={{ color: meta.color }}>
+                    {a.tauxRealisation !== null ? pct(a.tauxRealisation, 1) : "—"}
+                  </span>
+                  <span className="tv2-alert-tag" style={{ color: meta.color }}>
+                    {a.status === "critique" ? "Sous la cible" : "À améliorer"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="tv2-bottom-card">
+          <span className="tick text-[10.5px] text-[var(--color-text-dim)]">Répartition des indicateurs</span>
+          <div className="tv2-distrib-body">
+            <DistributionDonut good={good} warn={warn} bad={bad} total={total} size={104} />
+            <div className="tv2-distrib-legend">
+              <div className="tv2-legend-row">
+                <span className="tv2-legend-dot" style={{ background: "var(--color-bad)" }} />
+                Sous 80%
+                <b>
+                  {bad} ({total > 0 ? ((bad / total) * 100).toFixed(2) : "0.00"}%)
+                </b>
+              </div>
+              <div className="tv2-legend-row">
+                <span className="tv2-legend-dot" style={{ background: "var(--color-warn)" }} />
+                80% - 99.9%
+                <b>
+                  {warn} ({total > 0 ? ((warn / total) * 100).toFixed(2) : "0.00"}%)
+                </b>
+              </div>
+              <div className="tv2-legend-row">
+                <span className="tv2-legend-dot" style={{ background: "var(--color-good)" }} />
+                100% et plus
+                <b>
+                  {good} ({total > 0 ? ((good / total) * 100).toFixed(2) : "0.00"}%)
+                </b>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

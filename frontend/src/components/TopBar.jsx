@@ -1,19 +1,24 @@
 import { useEffect, useState } from "react";
 import { formatTimestamp, relativeTime } from "../lib/format";
-import { IconSearch, IconSun, IconMoon } from "./icons";
+import { IconSearch, IconSun, IconMoon, IconCalendar } from "./icons";
 
+// Pastille date/heure façon "vue TV" — calque le badge blanc arrondi avec
+// icône calendrier vu en haut à droite de la maquette de référence.
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const date = now.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-  const time = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const date = now.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }).toUpperCase();
+  const time = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return (
-    <div className="hidden sm:flex flex-col items-end leading-tight pl-2">
-      <span className="font-mono text-[15px] font-semibold text-[var(--color-text)] tabular-nums">{time}</span>
-      <span className="text-[10.5px] text-[var(--color-text-faint)] capitalize">{date}</span>
+    <div className="tv2-clock-pill">
+      <IconCalendar size={17} />
+      <div className="flex flex-col leading-tight">
+        <span className="tv2-clock-date">{date}</span>
+        <span className="tv2-clock-time">{time}</span>
+      </div>
     </div>
   );
 }
@@ -43,10 +48,13 @@ export default function TopBar({
             ☰
           </button>
           <div className="min-w-0">
-            <h1 className="text-[19px] md:text-[21px] font-bold tracking-tight text-[var(--color-text)] truncate" style={{ fontFamily: "var(--font-display)" }}>
+            <h1
+              className={`font-bold tracking-tight text-[var(--color-text)] truncate ${hideControls ? "text-[24px] md:text-[28px]" : "text-[19px] md:text-[21px]"}`}
+              style={{ fontFamily: "var(--font-display)" }}
+            >
               {title}
             </h1>
-            <p className="text-[12px] text-[var(--color-text-faint)] truncate">{subtitle}</p>
+            <p className={`text-[var(--color-text-faint)] truncate ${hideControls ? "text-[12.5px] tick" : "text-[12px]"}`}>{subtitle}</p>
           </div>
         </div>
 
@@ -77,18 +85,20 @@ export default function TopBar({
 
           {hideControls && <LiveClock />}
 
-          <div className="hidden lg:flex flex-col items-end leading-tight pl-2">
-            <span className="flex items-center gap-1.5 text-[10.5px] text-[var(--color-text-faint)]">
-              <span
-                className={`h-1.5 w-1.5 rounded-full bg-[var(--color-good)] ${pulse ? "" : "pulse-dot"}`}
-                style={pulse ? { boxShadow: "0 0 6px var(--color-good)" } : undefined}
-              />
-              En ligne
-            </span>
-            <span className="text-[10.5px] text-[var(--color-text-faint)]" title={formatTimestamp(lastFetched)}>
-              Actualisé {relativeTime(lastFetched)}
-            </span>
-          </div>
+          {!hideControls && (
+            <div className="hidden lg:flex flex-col items-end leading-tight pl-2">
+              <span className="flex items-center gap-1.5 text-[10.5px] text-[var(--color-text-faint)]">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full bg-[var(--color-good)] ${pulse ? "" : "pulse-dot"}`}
+                  style={pulse ? { boxShadow: "0 0 6px var(--color-good)" } : undefined}
+                />
+                En ligne
+              </span>
+              <span className="text-[10.5px] text-[var(--color-text-faint)]" title={formatTimestamp(lastFetched)}>
+                Actualisé {relativeTime(lastFetched)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </header>

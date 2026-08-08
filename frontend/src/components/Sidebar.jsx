@@ -2,7 +2,6 @@ import { motion } from "motion/react";
 import logo from "../assets/tt-logo.png";
 import { titleCase, categoryStyle } from "../lib/format";
 import {
-  IconDashboard,
   IconTv,
   IconGauge,
   IconCart,
@@ -28,7 +27,6 @@ export default function Sidebar({
   categories,
   activeCategory,
   onSelectCategory,
-  onSelectOverview,
   onSelectTV,
   onSelectSettings,
   onSelectHistory,
@@ -77,7 +75,6 @@ export default function Sidebar({
               Menu principal
             </div>
             <NavItem icon={IconTv} label="Vue TV (tout-en-un)" active={view === "tv"} onClick={onSelectTV} collapsed={collapsed} />
-            <NavItem icon={IconDashboard} label="Tableau de bord" active={view === "overview"} onClick={onSelectOverview} collapsed={collapsed} />
           </div>
 
           <div>

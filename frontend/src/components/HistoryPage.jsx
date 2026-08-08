@@ -87,10 +87,13 @@ export default function HistoryPage({ onOpenVersion, activeVersionId, openingId,
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="card p-5 md:p-6">
+      <div className="card tv-section-card p-5 md:p-6" style={{ "--accent-color": "var(--color-blue)" }}>
         <div className="flex items-center justify-between mb-4">
-          <span className="tick text-[11px] text-[var(--color-text-dim)]">Évolution du score global</span>
-          <span className="text-[11px] text-[var(--color-text-faint)]">{entries.length} version(s) archivée(s)</span>
+          <span className="tv-section-title">
+            <span className="tv-section-icon"><IconHistory size={15} /></span>
+            <span className="tick text-[11px] text-[var(--color-text-dim)]">Évolution du score global</span>
+          </span>
+          <span className="text-[11px] text-[var(--color-text-faint)] font-mono">{entries.length} version(s) archivée(s)</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -122,7 +125,7 @@ export default function HistoryPage({ onOpenVersion, activeVersionId, openingId,
         </ResponsiveContainer>
       </div>
 
-      <div className="card p-2">
+      <div className="card tv-section-card p-2" style={{ "--accent-color": "var(--color-violet)" }}>
         {actionError && (
           <p className="px-3 py-2 text-[12px] text-[var(--color-bad)]">{actionError}</p>
         )}

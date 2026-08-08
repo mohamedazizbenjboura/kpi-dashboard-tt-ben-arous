@@ -78,12 +78,12 @@ export default function SettingsPage({ onSaved }) {
 
   return (
     <div className="flex flex-col gap-5 max-w-2xl">
-      <div className="card p-6 md:p-7">
+      <div className="card tv-section-card p-6 md:p-7" style={{ "--accent-color": "var(--color-brand)" }}>
         <div className="flex items-center gap-2.5 mb-1.5">
-          <span className="h-8 w-8 rounded-xl flex items-center justify-center bg-[var(--color-brand-dim)] text-[var(--color-brand)]">
+          <span className="tv-section-icon">
             <IconCloudLink size={16} />
           </span>
-          <h2 className="text-[15px] font-semibold text-[var(--color-text)]">Source Google Drive</h2>
+          <h2 className="tick text-[13.5px] font-semibold text-[var(--color-text)]">Source Google Drive</h2>
         </div>
         <p className="text-[12.5px] text-[var(--color-text-faint)] mb-5 leading-relaxed">
           Collez le lien de partage du fichier Excel sur Google Drive (partagé en « Tous les utilisateurs
@@ -144,7 +144,7 @@ export default function SettingsPage({ onSaved }) {
       </div>
 
       {loaded && (
-        <div className="card p-6 md:p-7">
+        <div className="card tv-section-card p-6 md:p-7" style={{ "--accent-color": "var(--color-blue)" }}>
           <span className="tick text-[10.5px] text-[var(--color-text-faint)] mb-3 block">État de la synchronisation</span>
           <dl className="grid grid-cols-2 gap-y-3 gap-x-4 text-[12.5px]">
             <dt className="text-[var(--color-text-faint)]">Dernière vérification</dt>
