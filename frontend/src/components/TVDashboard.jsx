@@ -181,7 +181,17 @@ function MiniStat({ icon: Ico, color, label, value }) {
   );
 }
 
-function DistributionDonut({ good, warn, bad, total, size = 108, center = null }) {
+export function MiniStatRow({ icon: Ico, color, label, value }) {
+  return (
+    <div className="tv2-ministat-row">
+      <span className="tv2-ministat-icon" style={{ color, background: "color-mix(in srgb, currentColor 12%, transparent)" }}><Ico size={14} /></span>
+      <span className="tv2-ministat-label">{label}</span>
+      <b className="tv2-ministat-value" style={{ color }}>{value}</b>
+    </div>
+  );
+}
+
+export function DistributionDonut({ good, warn, bad, total, size = 108, center = null }) {
   const data = [
     { key: "bad", value: bad, color: "#E31B2E" },
     { key: "warn", value: warn, color: "#F59B13" },
@@ -408,6 +418,17 @@ const TV_CSS = `
     min-width:0;
   }
 
+  .tt-sidebar-top { position:relative; }
+  .tt-menu-button {
+    position:absolute;
+    right:4px;
+    top:2px;
+    width:18px;
+    display:grid;
+    gap:4px;
+  }
+  .tt-menu-button i { display:block; height:1.5px; border-radius:2px; background:#2457D6; }
+
   .tt-brand {
     height:clamp(90px,11vh,130px);
     display:flex;
@@ -417,7 +438,7 @@ const TV_CSS = `
     margin-bottom:clamp(10px,1.4vh,18px);
   }
   .tt-logo { width:min(92%,155px); max-height:108px; object-fit:contain; }
-  .tt-logo-compact { width:105px; }
+  .tt-logo-compact { width:30px; max-height:25px; vertical-align:middle; }
 
   .tt-menu-title {
     font-size:clamp(8px,.58vw,10px);
@@ -779,12 +800,22 @@ const TV_CSS = `
 
   .tt-footer {
     position:absolute;
+    left:clamp(180px,14vw,235px);
     right:clamp(12px,2vw,28px);
-    bottom:4px;
+    bottom:3px;
+    min-height:21px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
     color:#6C7487;
     font-size:clamp(6px,.48vw,8px);
     z-index:3;
   }
+  .tt-footer-legend { display:flex; align-items:center; justify-content:center; gap:clamp(8px,1.2vw,22px); flex:1; }
+  .tt-footer-legend > span { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .tt-footer-legend em { padding-left:clamp(8px,1vw,18px); border-left:1px solid #DDE2EC; font-style:normal; white-space:nowrap; }
+  .tt-footer-brand { display:flex; align-items:center; gap:5px; color:#173A9B; font-size:clamp(7px,.6vw,10px); font-weight:800; white-space:nowrap; }
 
   .tt-axes-count { color:#7C8495; font-size:clamp(6px,.45vw,8px); margin-left:auto; font-weight:600; text-transform:none; }
 
@@ -800,6 +831,8 @@ const TV_CSS = `
     .tt-summary { grid-template-columns:1.25fr repeat(3,.7fr); }
     .tt-header p { display:none; }
     .tt-bottom { grid-template-columns:repeat(2,1fr); }
+    .tt-footer { left:8px; }
+    .tt-footer-legend em, .tt-footer-brand { display:none; }
   }
   @media (max-height: 620px) {
     .tt-sidebar { padding-top:7px; }
@@ -869,13 +902,21 @@ export default function TVDashboard({
 
       <div className="tt-layout">
         <aside className="tt-sidebar">
-          <div className="tt-brand"><TTLogo /></div>
+          <div className="tt-sidebar-top">
+            <div className="tt-brand"><TTLogo /></div>
+            <span className="tt-menu-button" aria-hidden="true"><i /><i /><i /></span>
+          </div>
 
           <div className="tt-menu-title">Menu principal</div>
           <nav className="tt-nav">
             <button type="button" className="tt-nav-item active" onClick={onSelectTV}>
               <span className="tt-nav-icon"><IconGauge size={17} /></span>
               <span>Vue TV<br /><small>(Tout-en-un)</small></span>
+            </button>
+
+            <button type="button" className="tt-nav-item" onClick={onSelectTV}>
+              <span className="tt-nav-icon"><IconLayers size={17} /></span>
+              <span>Tableau de bord</span>
             </button>
 
             <div className="tt-nav-item">
@@ -1031,7 +1072,15 @@ export default function TVDashboard({
         </main>
       </div>
 
-      <div className="tt-footer">Cliquez sur un indicateur pour voir l’historique détaillé</div>
+      <footer className="tt-footer">
+        <div className="tt-footer-legend">
+          <span><i className="tt-legend-dot" style={{ background:"#E31B2E" }} />Sous 80%</span>
+          <span><i className="tt-legend-dot" style={{ background:"#F59B13" }} />80% - 99.9%</span>
+          <span><i className="tt-legend-dot" style={{ background:"#20A64A" }} />100% et plus</span>
+          <em>Cliquer sur un indicateur pour voir l’historique détaillé</em>
+        </div>
+        <div className="tt-footer-brand">Tunisie Telecom <TTLogo compact /></div>
+      </footer>
     </div>
   );
 }
