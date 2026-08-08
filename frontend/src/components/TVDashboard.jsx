@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { PieChart, Pie, Cell } from "recharts";
 import { pct, num, titleCase, statusMeta, categoryStyle } from "../lib/format";
@@ -16,6 +16,11 @@ import {
   IconAlertTriangle,
   IconTrendDown,
   IconTrendUp,
+  IconMenu,
+  IconHistory,
+  IconSettings,
+  IconX,
+  IconTv,
 } from "./icons";
 
 /*
@@ -99,6 +104,7 @@ export function GaugeRing({ ratio, color, size = 72, strokeWidth = 7 }) {
 }
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
+const EASE_IN = [0.4, 0, 1, 1];
 
 export function GaugeTile({ ind, onOpen, index = 0 }) {
   const meta = statusMeta(ind.status);
@@ -411,29 +417,129 @@ const TV_CSS = `
     width:100%;
     height:100%;
     display:grid;
-    grid-template-columns:clamp(160px, 13vw, 218px) minmax(0,1fr);
+    grid-template-columns:clamp(56px,4.6vw,76px) minmax(0,1fr);
   }
 
-  .tt-sidebar {
+  /* ============ Icon rail — always visible, this IS the collapsed state ============ */
+  .tt-rail {
+    position:relative;
+    z-index:2;
     height:100%;
-    background:rgba(255,255,255,.96);
+    background:rgba(255,255,255,.97);
     border-right:1px solid #E8EBF2;
-    padding:clamp(12px,1.1vw,18px) clamp(10px,1vw,17px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:clamp(6px,1vh,12px);
+    padding:clamp(10px,1.4vh,16px) 0;
+    min-width:0;
+    min-height:0;
+  }
+  .tt-rail-toggle {
+    width:36px;
+    height:36px;
+    border-radius:11px;
+    display:grid;
+    place-items:center;
+    border:none;
+    background:transparent;
+    color:#2457D6;
+    cursor:pointer;
+    flex:0 0 auto;
+  }
+  .tt-rail-toggle:hover { background:#EEF2FC; }
+  .tt-rail-mark {
+    width:clamp(26px,2.6vw,34px);
+    height:clamp(26px,2.6vw,34px);
+    object-fit:contain;
+    flex:0 0 auto;
+    margin:2px 0 4px;
+  }
+  .tt-rail-sep {
+    width:22px;
+    height:1px;
+    background:#E7EAF1;
+    flex:0 0 auto;
+    margin:2px 0;
+  }
+  .tt-rail-nav {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    flex:1;
+    min-height:0;
+    overflow:hidden;
+  }
+  .tt-rail-item {
+    width:38px;
+    height:38px;
+    flex:0 0 auto;
+    border-radius:11px;
+    display:grid;
+    place-items:center;
+    border:none;
+    background:transparent;
+    color:#63698A;
+    cursor:pointer;
+  }
+  .tt-rail-item:hover { background:#F3F5FC; color:#1F3A8F; }
+  .tt-rail-item.active { background:linear-gradient(135deg,#EAF0FF,#DDE5FF); color:#1740BF; }
+  .tt-rail-foot {
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:grid;
+    place-items:center;
+    color:#9AA1B5;
+    font-size:8px;
+    font-weight:800;
+  }
+
+  /* ============ Expanded drawer overlay — opens on top, never reflows content ============ */
+  .tt-drawer-backdrop {
+    position:fixed;
+    inset:0;
+    z-index:15;
+    border:none;
+    padding:0;
+    background:rgba(13,22,58,.14);
+    backdrop-filter:blur(1.5px);
+    cursor:default;
+  }
+  .tt-drawer {
+    position:fixed;
+    left:0;
+    top:0;
+    height:100dvh;
+    width:clamp(208px,17vw,264px);
+    z-index:16;
+    background:rgba(255,255,255,.99);
+    border-right:1px solid #E4E8F0;
+    border-radius:0 20px 20px 0;
+    box-shadow:0 22px 60px rgba(20,35,90,.22);
+    padding:clamp(14px,1.6vh,20px) clamp(12px,1.1vw,18px);
     display:flex;
     flex-direction:column;
     min-width:0;
+    transform-origin:left center;
   }
-
-  .tt-sidebar-top { position:relative; }
-  .tt-menu-button {
+  .tt-drawer-close {
     position:absolute;
-    right:4px;
-    top:2px;
-    width:18px;
+    right:12px;
+    top:12px;
+    width:30px;
+    height:30px;
+    border-radius:9px;
     display:grid;
-    gap:4px;
+    place-items:center;
+    border:none;
+    background:transparent;
+    color:#8890A6;
+    cursor:pointer;
   }
-  .tt-menu-button i { display:block; height:1.5px; border-radius:2px; background:#2457D6; }
+  .tt-drawer-close:hover { background:#F1F3F9; color:#1B2B62; }
 
   .tt-brand {
     height:clamp(90px,11vh,130px);
@@ -513,6 +619,24 @@ const TV_CSS = `
     font-size:clamp(9px,.78vw,13px);
     font-weight:850;
     letter-spacing:.02em;
+  }
+
+  .tt-mobile-toggle {
+    display:none;
+    position:fixed;
+    left:10px;
+    top:10px;
+    z-index:14;
+    width:36px;
+    height:36px;
+    border-radius:11px;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #E4E8F0;
+    background:#fff;
+    color:#2457D6;
+    box-shadow:0 6px 16px rgba(30,50,100,.12);
+    cursor:pointer;
   }
 
   .tt-main {
@@ -815,7 +939,7 @@ const TV_CSS = `
 
   .tt-footer {
     position:absolute;
-    left:clamp(180px,14vw,235px);
+    left:clamp(70px,5.6vw,92px);
     right:clamp(12px,2vw,28px);
     bottom:3px;
     min-height:21px;
@@ -841,8 +965,9 @@ const TV_CSS = `
   }
   @media (max-width: 760px) {
     .tt-layout { grid-template-columns:0 minmax(0,1fr); }
-    .tt-sidebar { display:none; }
-    .tt-main { padding:6px; }
+    .tt-rail { display:none; }
+    .tt-mobile-toggle { display:flex; }
+    .tt-main { padding:6px 6px 6px 50px; }
     .tt-summary { grid-template-columns:1.25fr repeat(3,.7fr); }
     .tt-header p { display:none; }
     .tt-bottom { grid-template-columns:repeat(2,1fr); }
@@ -850,7 +975,8 @@ const TV_CSS = `
     .tt-footer-legend em, .tt-footer-brand { display:none; }
   }
   @media (max-height: 620px) {
-    .tt-sidebar { padding-top:7px; }
+    .tt-rail { padding-top:7px; gap:4px; }
+    .tt-rail-item { width:32px; height:32px; }
     .tt-brand { height:65px; margin-bottom:6px; }
     .tt-logo { max-height:58px; }
     .tt-nav-item { min-height:25px; }
@@ -877,6 +1003,41 @@ export default function TVDashboard({
   const good = trackedAll.filter((i) => i.status === "atteint").length;
   const warn = trackedAll.filter((i) => i.status === "attention").length;
   const bad = trackedAll.filter((i) => i.status === "critique").length;
+
+  // La vue TV demarre TOUJOURS repliee (rail d'icones uniquement) : etat de
+  // repos pense pour un televiseur en affichage passif. Un clic sur les trois
+  // lignes ouvre le tiroir complet en surimpression, sans jamais redimensionner
+  // la grille deja calee pour tenir sur un seul ecran.
+  const [navExpanded, setNavExpanded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("tt-tv-nav-expanded") === "1";
+  });
+
+  function toggleNav() {
+    setNavExpanded((v) => {
+      const next = !v;
+      try { window.localStorage.setItem("tt-tv-nav-expanded", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }
+  function closeNav() {
+    setNavExpanded(false);
+  }
+  function pick(fn) {
+    return () => {
+      fn?.();
+      closeNav();
+    };
+  }
+
+  useEffect(() => {
+    if (!navExpanded) return;
+    function onKey(e) {
+      if (e.key === "Escape") closeNav();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navExpanded]);
 
   const [history, setHistory] = useState(null);
 
@@ -915,64 +1076,193 @@ export default function TVDashboard({
       <div className="tt-wave tt-wave-top" />
       <div className="tt-wave tt-wave-bottom" />
 
+      <button
+        type="button"
+        className="tt-mobile-toggle"
+        onClick={toggleNav}
+        aria-label="Ouvrir le menu"
+        title="Menu"
+      >
+        <IconMenu size={18} />
+      </button>
+
       <div className="tt-layout">
-        <aside className="tt-sidebar">
-          <div className="tt-sidebar-top">
-            <div className="tt-brand"><TTLogo /></div>
-            <span className="tt-menu-button" aria-hidden="true"><i /><i /><i /></span>
-          </div>
+        {/* Rail d'icônes : c'est l'état par défaut, toujours affiché, jamais de scroll ni de reflow. */}
+        <aside className="tt-rail">
+          <motion.button
+            type="button"
+            className="tt-rail-toggle"
+            onClick={toggleNav}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ duration: 0.12, ease: EASE_OUT }}
+            aria-label={navExpanded ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={navExpanded}
+            title={navExpanded ? "Fermer le menu" : "Ouvrir le menu"}
+          >
+            <IconMenu size={18} />
+          </motion.button>
 
-          <div className="tt-menu-title">Menu principal</div>
-          <nav className="tt-nav">
-            <button type="button" className="tt-nav-item active" onClick={onSelectTV}>
-              <span className="tt-nav-icon"><IconGauge size={17} /></span>
-              <span>Vue TV<br /><small>(Tout-en-un)</small></span>
-            </button>
+          <img
+            src={LOGO_SRC}
+            alt="Tunisie Telecom"
+            className="tt-rail-mark"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
 
-            <button type="button" className="tt-nav-item" onClick={onSelectTV}>
-              <span className="tt-nav-icon"><IconLayers size={17} /></span>
-              <span>Tableau de bord</span>
-            </button>
+          <div className="tt-rail-sep" />
 
-            <div className="tt-nav-item">
-              <span className="tt-nav-icon"><IconHeart size={17} /></span>
-              <span>Axes de pilotage</span>
-              <span style={{ marginLeft:"auto" }}>⌄</span>
-            </div>
+          <nav className="tt-rail-nav">
+            <motion.button
+              type="button"
+              className="tt-rail-item active"
+              onClick={onSelectTV}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ duration: 0.12, ease: EASE_OUT }}
+              title="Vue TV (tout-en-un)"
+            >
+              <IconTv size={18} />
+            </motion.button>
 
-            <div className="tt-subnav">
-              {categories.map((cat) => {
-                const c = axisColor(cat.categorie);
-                return (
-                  <button
-                    type="button"
-                    key={cat.categorie}
-                    className="tt-subnav-item"
-                    onClick={() => onSelectCategory?.(cat.categorie)}
-                    style={activeCategory === cat.categorie ? { color: c, fontWeight: 800 } : undefined}
-                  >
-                    <i className="tt-dot" style={{ background:c }} />
-                    {titleCase(cat.categorie)}
-                  </button>
-                );
-              })}
-            </div>
+            {categories.map((cat) => {
+              const c = axisColor(cat.categorie);
+              const style = categoryStyle(cat.categorie);
+              const Ico = CATEGORY_ICON[style.icon] ?? IconGauge;
+              const active = activeCategory === cat.categorie;
+              return (
+                <motion.button
+                  type="button"
+                  key={cat.categorie}
+                  className={`tt-rail-item${active ? " active" : ""}`}
+                  style={active ? { color: c } : undefined}
+                  onClick={() => onSelectCategory?.(cat.categorie)}
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ duration: 0.12, ease: EASE_OUT }}
+                  title={titleCase(cat.categorie)}
+                >
+                  <Ico size={17} />
+                </motion.button>
+              );
+            })}
 
-            <div className="tt-menu-title" style={{ marginTop: 10 }}>Données</div>
-            <button type="button" className="tt-nav-item" onClick={onSelectHistory}>
-              <span className="tt-nav-icon"><IconTrendDown size={17} /></span>
-              <span>Historique</span>
-            </button>
-            <button type="button" className="tt-nav-item" onClick={onSelectSettings}>
-              <span className="tt-nav-icon"><IconGauge size={17} /></span>
-              <span>Paramètres</span>
-            </button>
+            <div className="tt-rail-sep" />
+
+            <motion.button
+              type="button"
+              className="tt-rail-item"
+              onClick={onSelectHistory}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ duration: 0.12, ease: EASE_OUT }}
+              title="Historique"
+            >
+              <IconHistory size={17} />
+            </motion.button>
+            <motion.button
+              type="button"
+              className="tt-rail-item"
+              onClick={onSelectSettings}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ duration: 0.12, ease: EASE_OUT }}
+              title="Paramètres"
+            >
+              <IconSettings size={17} />
+            </motion.button>
           </nav>
 
-          <div className="tt-innovate">
-            CONNECTER<br />INNOVER<br />SERVIR
-          </div>
+          <div className="tt-rail-foot" title="Connecter · Innover · Servir" aria-hidden="true">TT</div>
         </aside>
+
+        {/* Tiroir déplié : surimpression uniquement — le contenu principal ne bouge jamais. */}
+        <AnimatePresence>
+          {navExpanded && (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Fermer le menu"
+                className="tt-drawer-backdrop"
+                onClick={closeNav}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { duration: 0.2, ease: EASE_OUT } }}
+                exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_IN } }}
+              />
+              <motion.aside
+                className="tt-drawer"
+                initial={{ x: -24, opacity: 0 }}
+                animate={{ x: 0, opacity: 1, transition: { type: "spring", stiffness: 420, damping: 34, mass: 0.9 } }}
+                exit={{ x: -18, opacity: 0, transition: { duration: 0.16, ease: EASE_IN } }}
+              >
+                <motion.button
+                  type="button"
+                  onClick={closeNav}
+                  className="tt-drawer-close"
+                  whileHover={{ backgroundColor: "#F1F3F9" }}
+                  whileTap={{ scale: 0.88 }}
+                  transition={{ duration: 0.12, ease: EASE_OUT }}
+                  aria-label="Fermer le menu"
+                >
+                  <IconX size={15} />
+                </motion.button>
+
+                <div className="tt-brand"><TTLogo /></div>
+
+                <div className="tt-menu-title">Menu principal</div>
+                <nav className="tt-nav">
+                  <button type="button" className="tt-nav-item active" onClick={pick(onSelectTV)}>
+                    <span className="tt-nav-icon"><IconGauge size={17} /></span>
+                    <span>Vue TV<br /><small>(Tout-en-un)</small></span>
+                  </button>
+
+                  <button type="button" className="tt-nav-item" onClick={pick(onSelectTV)}>
+                    <span className="tt-nav-icon"><IconLayers size={17} /></span>
+                    <span>Tableau de bord</span>
+                  </button>
+
+                  <div className="tt-nav-item">
+                    <span className="tt-nav-icon"><IconHeart size={17} /></span>
+                    <span>Axes de pilotage</span>
+                    <span style={{ marginLeft: "auto" }}>⌄</span>
+                  </div>
+
+                  <div className="tt-subnav">
+                    {categories.map((cat) => {
+                      const c = axisColor(cat.categorie);
+                      return (
+                        <button
+                          type="button"
+                          key={cat.categorie}
+                          className="tt-subnav-item"
+                          onClick={pick(() => onSelectCategory?.(cat.categorie))}
+                          style={activeCategory === cat.categorie ? { color: c, fontWeight: 800 } : undefined}
+                        >
+                          <i className="tt-dot" style={{ background: c }} />
+                          {titleCase(cat.categorie)}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="tt-menu-title" style={{ marginTop: 10 }}>Données</div>
+                  <button type="button" className="tt-nav-item" onClick={pick(onSelectHistory)}>
+                    <span className="tt-nav-icon"><IconHistory size={17} /></span>
+                    <span>Historique</span>
+                  </button>
+                  <button type="button" className="tt-nav-item" onClick={pick(onSelectSettings)}>
+                    <span className="tt-nav-icon"><IconSettings size={17} /></span>
+                    <span>Paramètres</span>
+                  </button>
+                </nav>
+
+                <div className="tt-innovate">
+                  CONNECTER<br />INNOVER<br />SERVIR
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
 
         <main className="tt-main">
           <header className="tt-header">
