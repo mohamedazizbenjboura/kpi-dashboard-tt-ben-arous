@@ -70,6 +70,12 @@ export default function App() {
   const [lastFetched, setLastFetched] = useState(null);
   const [pulse, setPulse] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar repliable façon Claude : un clic sur les trois lignes fait
+  // disparaître les libellés (seul le logo persiste), état mémorisé.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("tt-sidebar-collapsed") === "1";
+  });
   const [archiveView, setArchiveView] = useState(null); // { entry, sheet, fileName, loadedAt } | null
   const [archiveOpeningId, setArchiveOpeningId] = useState(null);
   const [archiveError, setArchiveError] = useState("");
@@ -88,6 +94,14 @@ export default function App() {
 
   function toggleTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem("tt-sidebar-collapsed", next ? "1" : "0");
+      return next;
+    });
   }
 
   const load = useCallback(async (isInitial) => {
@@ -264,6 +278,8 @@ export default function App() {
         onSelectHistory={goHistory}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -297,6 +313,7 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenSidebar={() => setSidebarOpen(true)}
+          hideControls={view === "tv"}
         />
 
         <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 md:px-7 py-6 flex flex-col gap-5">

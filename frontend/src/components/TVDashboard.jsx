@@ -24,7 +24,7 @@ const CATEGORY_ICON = {
 // stroke itself is clamped to a full circle at 100% so an over-achieved
 // indicator (>100%) doesn't overflow visually; the number below still shows
 // the real value.
-function MiniGauge({ ratio, color, size = 58 }) {
+function MiniGauge({ ratio, color, size = 56 }) {
   const r = (size - 9) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - Math.min(Math.max(ratio ?? 0, 0), 1));
@@ -94,7 +94,7 @@ function AxisSection({ cat, onOpenIndicator, delay }) {
       transition={{ duration: 0.35, delay }}
     >
       <div className="tv-axis-header">
-        <span className="tv-axis-icon" style={{ background: `${style.color}20`, color: style.color }}>
+        <span className="tv-axis-icon" style={{ background: `${style.color}1c`, color: style.color }}>
           <Ico size={16} />
         </span>
         <span className="tv-axis-title">{titleCase(cat.categorie)}</span>
@@ -119,12 +119,22 @@ function AxisSection({ cat, onOpenIndicator, delay }) {
 // une seule page, tout le classeur (tous les axes, tous les indicateurs) y
 // tient, avec le barème de couleur (rouge < 80% / orange 80-99.9% / vert >=
 // 100%) rappelé en légende. Cliquer un indicateur ouvre son historique en pop-up.
+// Cette vue est volontairement forcée en thème clair (data-theme="light") :
+// le fond noir a été explicitement écarté par l'encadrant pour l'affichage TV.
 export default function TVDashboard({ sheet, categories, scoreGlobal, period, total, atteints, attention, critiques, onOpenIndicator }) {
   const globalMeta = statusMeta(scoreGlobal !== null && scoreGlobal >= 1 ? "atteint" : scoreGlobal >= 0.8 ? "attention" : "critique");
   const globalRatio = scoreGlobal ?? 0;
 
   return (
-    <div className="tv-page">
+    <div className="tv-page" data-theme="light">
+      <div className="tv-strip">
+        <span className="tick text-[11px] text-[var(--color-text-dim)] whitespace-nowrap">Direction Régionale Ben Arous</span>
+        <span className="tv-strip-bar" />
+        {period && (
+          <span className="tick text-[11px] text-[var(--color-text-faint)] whitespace-nowrap">Période · {period}</span>
+        )}
+      </div>
+
       <div className="tv-hero">
         <div className="tv-hero-score card">
           <div className="tv-hero-score-ring">
@@ -152,10 +162,10 @@ export default function TVDashboard({ sheet, categories, scoreGlobal, period, to
                 transform="rotate(-90 80 80)"
                 style={{ transition: "stroke-dashoffset 900ms cubic-bezier(.16,1,.3,1)" }}
               />
-              <text x="80" y="76" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="30" fontWeight="700" fill="var(--color-text)">
+              <text x="80" y="76" textAnchor="middle" fontFamily="var(--font-display)" fontSize="31" fontWeight="700" fill="var(--color-text)">
                 {(globalRatio * 100).toFixed(1)}%
               </text>
-              <text x="80" y="97" textAnchor="middle" fontFamily="var(--font-display)" fontSize="9" letterSpacing="1.2" fill="var(--color-text-faint)">
+              <text x="80" y="97" textAnchor="middle" fontFamily="var(--font-display)" fontSize="9" letterSpacing="1.4" fill="var(--color-text-faint)">
                 SCORE RÉGIONAL
               </text>
             </svg>
@@ -167,7 +177,6 @@ export default function TVDashboard({ sheet, categories, scoreGlobal, period, to
             >
               {globalMeta.label}
             </span>
-            {period && <span className="text-[10.5px] text-[var(--color-text-faint)]">Période · {period}</span>}
           </div>
         </div>
 
@@ -182,7 +191,7 @@ export default function TVDashboard({ sheet, categories, scoreGlobal, period, to
         </div>
 
         <div className="tv-hero-legend card">
-          <span className="tick text-[10px] text-[var(--color-text-faint)] mb-2 block">Barème</span>
+          <span className="tick text-[10px] text-[var(--color-text-faint)] mb-1 block">Barème</span>
           <LegendRow color="var(--color-bad)" label="Sous 80%" />
           <LegendRow color="var(--color-warn)" label="80% à 99,9%" />
           <LegendRow color="var(--color-good)" label="100% et plus" />
@@ -207,7 +216,7 @@ function StatRow({ icon: Ico, color, label, value, total }) {
   const share = total > 0 ? Math.round(((value ?? 0) / total) * 100) : 0;
   return (
     <div className="tv-stat-row">
-      <span className="tv-stat-icon" style={{ background: `${color}20`, color }}>
+      <span className="tv-stat-icon" style={{ background: `${color}1c`, color }}>
         <Ico size={15} />
       </span>
       <span className="tv-stat-label">{label}</span>
@@ -221,8 +230,8 @@ function StatRow({ icon: Ico, color, label, value, total }) {
 
 function LegendRow({ color, label }) {
   return (
-    <div className="flex items-center gap-2 text-[12px] text-[var(--color-text-dim)] py-1">
-      <span className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
+    <div className="tv-legend-row">
+      <span className="tv-legend-swatch" style={{ background: color, "--sw-color": color }} />
       {label}
     </div>
   );

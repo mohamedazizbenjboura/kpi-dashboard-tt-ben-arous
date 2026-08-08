@@ -12,6 +12,7 @@ import {
   IconHeart,
   IconSettings,
   IconHistory,
+  IconMenu,
 } from "./icons";
 
 const CATEGORY_ICON = {
@@ -34,6 +35,8 @@ export default function Sidebar({
   view,
   open,
   onClose,
+  collapsed,
+  onToggleCollapsed,
 }) {
   return (
     <>
@@ -45,27 +48,42 @@ export default function Sidebar({
         />
       )}
       <aside
-        className={`fixed lg:sticky top-0 z-40 h-screen w-[254px] shrink-0 flex flex-col border-r border-[var(--color-border-soft)] bg-[var(--color-sidebar)] transition-transform duration-300 lg:translate-x-0 ${
+        className={`sidebar-shell ${collapsed ? "is-collapsed" : ""} fixed lg:sticky top-0 z-40 h-screen shrink-0 flex flex-col border-r border-[var(--color-border-soft)] bg-[var(--color-sidebar)] duration-300 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Brand */}
-        <div className="flex flex-col items-center gap-3 px-5 pt-8 pb-6">
-          <img src={logo} alt="Tunisie Telecom" className="h-24 w-auto shrink-0" />
-          <span className="tick text-[10.5px] text-[var(--color-text-faint)] text-center">Centre de pilotage KPI</span>
+        {/* Brand + collapse toggle */}
+        <div className={`flex flex-col items-center gap-2.5 pt-6 pb-5 ${collapsed ? "px-2" : "px-5"}`}>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            className="hidden lg:flex self-end h-8 w-8 rounded-lg items-center justify-center text-[var(--color-text-faint)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer sidebar-toggle"
+          >
+            <IconMenu size={17} />
+          </button>
+          <img src={logo} alt="Tunisie Telecom" className={`w-auto shrink-0 transition-all duration-300 ${collapsed ? "h-11" : "h-24"}`} />
+          <span className="sidebar-label tick text-[10.5px] text-[var(--color-text-faint)] text-center">
+            Centre de pilotage KPI
+          </span>
         </div>
 
         <div className="h-px mx-5 bg-[var(--color-border-soft)]" />
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 flex flex-col gap-5">
           <div>
-            <div className="tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">Menu principal</div>
-            <NavItem icon={IconTv} label="Vue TV (tout-en-un)" active={view === "tv"} onClick={onSelectTV} />
-            <NavItem icon={IconDashboard} label="Tableau de bord" active={view === "overview"} onClick={onSelectOverview} />
+            <div className="sidebar-section-title tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">
+              Menu principal
+            </div>
+            <NavItem icon={IconTv} label="Vue TV (tout-en-un)" active={view === "tv"} onClick={onSelectTV} collapsed={collapsed} />
+            <NavItem icon={IconDashboard} label="Tableau de bord" active={view === "overview"} onClick={onSelectOverview} collapsed={collapsed} />
           </div>
 
           <div>
-            <div className="tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">Axes de pilotage</div>
+            <div className="sidebar-section-title tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">
+              Axes de pilotage
+            </div>
             <div className="flex flex-col gap-0.5">
               {categories.map((c) => {
                 const style = categoryStyle(c.categorie);
@@ -79,6 +97,7 @@ export default function Sidebar({
                     active={active}
                     color={style.color}
                     onClick={() => onSelectCategory(c.categorie)}
+                    collapsed={collapsed}
                   />
                 );
               })}
@@ -86,16 +105,18 @@ export default function Sidebar({
           </div>
 
           <div>
-            <div className="tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">Données</div>
+            <div className="sidebar-section-title tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">
+              Données
+            </div>
             <div className="flex flex-col gap-0.5">
-              <NavItem icon={IconHistory} label="Historique" active={view === "history"} onClick={onSelectHistory} />
-              <NavItem icon={IconSettings} label="Paramètres" active={view === "settings"} onClick={onSelectSettings} />
+              <NavItem icon={IconHistory} label="Historique" active={view === "history"} onClick={onSelectHistory} collapsed={collapsed} />
+              <NavItem icon={IconSettings} label="Paramètres" active={view === "settings"} onClick={onSelectSettings} collapsed={collapsed} />
             </div>
           </div>
         </nav>
 
         <div className="mt-auto px-5 py-5 border-t border-[var(--color-border-soft)]">
-          <p className="text-[10.5px] leading-relaxed text-[var(--color-text-faint)]">
+          <p className="sidebar-label text-[10.5px] leading-relaxed text-[var(--color-text-faint)]">
             Direction Régionale
             <br />
             Ben Arous
@@ -106,13 +127,15 @@ export default function Sidebar({
   );
 }
 
-function NavItem({ icon: Ico, label, active, muted, color, onClick }) {
+function NavItem({ icon: Ico, label, active, muted, color, onClick, collapsed }) {
   return (
     <motion.button
       type="button"
       onClick={onClick}
+      title={collapsed ? label : undefined}
       whileTap={{ scale: 0.98 }}
       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12.5px] font-medium transition-colors cursor-pointer text-left
+        ${collapsed ? "justify-center" : ""}
         ${active ? "bg-[var(--color-surface-3)] text-[var(--color-text)]" : "text-[var(--color-text-dim)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"}
         ${muted ? "opacity-60" : ""}`}
     >
@@ -125,7 +148,7 @@ function NavItem({ icon: Ico, label, active, muted, color, onClick }) {
       >
         <Ico size={16} />
       </span>
-      <span className="truncate">{label}</span>
+      <span className="sidebar-label truncate">{label}</span>
     </motion.button>
   );
 }

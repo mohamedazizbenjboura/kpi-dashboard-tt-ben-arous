@@ -301,6 +301,14 @@ export const IconTv = (p) => (
   </Icon>
 );
 
+export const IconMenu = (p) => (
+  <Icon {...p}>
+    <path d="M3.5 6.5h17" />
+    <path d="M3.5 12h17" />
+    <path d="M3.5 17.5h17" />
+  </Icon>
+);
+
 export const IconDownload = (p) => (
   <Icon {...p}>
     <path d="M12 3.5v11" />
