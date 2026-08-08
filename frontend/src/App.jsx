@@ -88,9 +88,14 @@ export default function App() {
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    // La vue TV est toujours forcée en thème clair, quel que soit le réglage
+    // mémorisé (fond noir explicitement écarté par l'encadrant pour cet
+    // affichage) : le thème sombre reste un choix possible sur les autres
+    // vues, mais ne doit jamais s'appliquer à la vue TV, même si l'utilisateur
+    // l'a activé précédemment ailleurs dans l'application.
+    document.documentElement.setAttribute("data-theme", view === "tv" ? "light" : theme);
     localStorage.setItem("tt-theme", theme);
-  }, [theme]);
+  }, [theme, view]);
 
   function toggleTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));

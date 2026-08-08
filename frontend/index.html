@@ -10,12 +10,12 @@
     <title>Centre KPI · Tunisie Telecom — Direction Régionale Ben Arous</title>
     <script>
       (function () {
-        try {
-          var t = localStorage.getItem("tt-theme") || "light";
-          document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {
-          document.documentElement.setAttribute("data-theme", "light");
-        }
+        // L'application démarre toujours sur la vue TV (jamais persistée en
+        // session), qui est elle-même toujours forcée en clair (fond noir
+        // écarté par l'encadrant) : on peint donc directement en clair avant
+        // hydratation, pour éviter tout flash sombre même si un thème sombre
+        // a été choisi lors d'une session précédente sur une autre vue.
+        document.documentElement.setAttribute("data-theme", "light");
       })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
