@@ -293,6 +293,14 @@ export const IconTrash = (p) => (
   </Icon>
 );
 
+export const IconTv = (p) => (
+  <Icon {...p}>
+    <rect x="2.5" y="5" width="19" height="13" rx="2" />
+    <path d="M8 21h8" />
+    <path d="M12 18v3" />
+  </Icon>
+);
+
 export const IconDownload = (p) => (
   <Icon {...p}>
     <path d="M12 3.5v11" />

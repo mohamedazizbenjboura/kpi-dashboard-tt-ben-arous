@@ -84,10 +84,12 @@ function toNumber(v) {
   return isPercentText ? n / 100 : n;
 }
 
+// Barème validé par l'encadrant : < 80% = critique (rouge), 80% à 99.9% =
+// attention (orange), >= 100% = atteint (vert). Remplace l'ancien seuil 70/90.
 function statusFromTaux(taux) {
   if (taux === null) return "inconnu";
-  if (taux >= 0.9) return "atteint";
-  if (taux >= 0.7) return "attention";
+  if (taux >= 1) return "atteint";
+  if (taux >= 0.8) return "attention";
   return "critique";
 }
 

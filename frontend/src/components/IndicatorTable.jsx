@@ -3,7 +3,7 @@ import { pct, num, statusMeta, titleCase } from "../lib/format";
 
 // Flat, searchable overview of every indicator in the active sheet — the
 // "Suivi des indicateurs clés" table from the reference design.
-export default function IndicatorTable({ indicateurs, search, limit }) {
+export default function IndicatorTable({ indicateurs, search, limit, onSelect }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = indicateurs;
@@ -50,7 +50,11 @@ export default function IndicatorTable({ indicateurs, search, limit }) {
               const meta = statusMeta(ind.status);
               const ratio = ind.tauxRealisation;
               return (
-                <tr key={`${ind.indicateur}-${i}`} className="border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-2)] transition-colors">
+                <tr
+                  key={`${ind.indicateur}-${i}`}
+                  onClick={() => onSelect?.(ind)}
+                  className={`border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-2)] transition-colors ${onSelect ? "cursor-pointer" : ""}`}
+                >
                   <td className="py-2.5 pr-3 text-[13px] text-[var(--color-text)] font-medium whitespace-nowrap">
                     {titleCase(ind.indicateur)}
                   </td>

@@ -2,7 +2,8 @@
 // the parsed workbook, nothing is invented or hard-coded.
 import { pct, titleCase } from "./format";
 
-const GLOBAL_OBJECTIVE = 0.9;
+// Barème validé par l'encadrant : objectif = 100% de réalisation.
+const GLOBAL_OBJECTIVE = 1;
 
 export function buildInsights(sheet) {
   const categories = (sheet?.categories ?? []).filter((c) => c.tauxMoyenPondere !== null);

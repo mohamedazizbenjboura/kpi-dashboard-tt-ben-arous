@@ -7,6 +7,8 @@ import LoadingScreen from "./components/LoadingScreen";
 import ErrorState from "./components/ErrorState";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
+import TVDashboard from "./components/TVDashboard";
+import IndicatorHistoryModal from "./components/IndicatorHistoryModal";
 import GlobalDial from "./components/GlobalDial";
 import StatCard from "./components/StatCard";
 import AxisRings from "./components/AxisRings";
@@ -59,8 +61,11 @@ export default function App() {
   const [noData, setNoData] = useState(false);
   const [sheetName, setSheetName] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [view, setView] = useState("overview"); // overview | category | settings | history
+  // La vue TV (tout-en-un, une seule page) est l'écran d'accueil par défaut :
+  // c'est celle destinée à être affichée telle quelle sur un téléviseur connecté.
+  const [view, setView] = useState("tv"); // tv | overview | category | settings | history
   const [search, setSearch] = useState("");
+  const [selectedIndicator, setSelectedIndicator] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [lastFetched, setLastFetched] = useState(null);
   const [pulse, setPulse] = useState(false);
@@ -68,9 +73,12 @@ export default function App() {
   const [archiveView, setArchiveView] = useState(null); // { entry, sheet, fileName, loadedAt } | null
   const [archiveOpeningId, setArchiveOpeningId] = useState(null);
   const [archiveError, setArchiveError] = useState("");
+  // Thème clair par défaut : un fond noir a été explicitement signalé comme
+  // à éviter (remarque de l'encadrant) — le thème sombre reste disponible via
+  // le bouton de bascule pour qui le préfère.
   const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "dark";
-    return localStorage.getItem("tt-theme") || "dark";
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem("tt-theme") || "light";
   });
 
   useEffect(() => {
@@ -220,6 +228,12 @@ export default function App() {
     setSidebarOpen(false);
   }
 
+  function goTV() {
+    setView("tv");
+    setSelectedCategory(null);
+    setSidebarOpen(false);
+  }
+
   function goCategory(cat) {
     setSelectedCategory(cat);
     setView("category");
@@ -245,6 +259,7 @@ export default function App() {
         view={view}
         onSelectCategory={goCategory}
         onSelectOverview={goOverview}
+        onSelectTV={goTV}
         onSelectSettings={goSettings}
         onSelectHistory={goHistory}
         open={sidebarOpen}
@@ -256,6 +271,8 @@ export default function App() {
           title={
             archiveView
               ? `ARCHIVE — ${archiveView.entry.month.toUpperCase()}`
+              : view === "tv"
+              ? "TABLEAU DE BORD KPI — VUE TV"
               : view === "overview"
               ? "TABLEAU DE BORD KPI"
               : view === "category"
@@ -267,6 +284,8 @@ export default function App() {
           subtitle={
             archiveView
               ? `Appliqué le ${formatTimestamp(new Date(archiveView.entry.appliedAt).getTime())} — lecture seule`
+              : view === "tv"
+              ? "Vue complète en une page — Direction Régionale Ben Arous"
               : view === "overview"
               ? "Vue d'ensemble de la performance — Direction Régionale Ben Arous"
               : "Direction Régionale Ben Arous"
@@ -281,7 +300,7 @@ export default function App() {
         />
 
         <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 md:px-7 py-6 flex flex-col gap-5">
-          {(view === "overview" || view === "category") && archiveView && (
+          {(view === "tv" || view === "overview" || view === "category") && archiveView && (
             <div
               className="card p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4"
               style={{ borderColor: "var(--color-brand)" }}
@@ -306,11 +325,11 @@ export default function App() {
             </div>
           )}
 
-          {(view === "overview" || view === "category") && (
+          {(view === "tv" || view === "overview" || view === "category") && (
             <PendingBanner pending={archiveView ? null : syncStatus?.pending} onApplied={handlePendingResolved} />
           )}
 
-          {(view === "overview" || view === "category") && showEmptyState && (
+          {(view === "tv" || view === "overview" || view === "category") && showEmptyState && (
             <div className="card p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-[var(--color-text)]">Aucune donnée chargée pour l'instant</p>
@@ -353,6 +372,20 @@ export default function App() {
             </>
           )}
 
+          {view === "tv" && (
+            <TVDashboard
+              sheet={sheet}
+              categories={categories}
+              scoreGlobal={sheet.scoreGlobal}
+              period={sheet.sheetName}
+              total={totalIndicateurs}
+              atteints={atteints}
+              attention={attention}
+              critiques={critiques}
+              onOpenIndicator={setSelectedIndicator}
+            />
+          )}
+
           {(view === "overview" || view === "category") && (
             <>
           {/* Key numbers — the first thing anyone reads in a meeting */}
@@ -365,8 +398,8 @@ export default function App() {
               value={(sheet.scoreGlobal ?? 0) * 100}
               icon={IconGauge}
               color="var(--color-brand)"
-              delta={(sheet.scoreGlobal ?? 0) - 0.9}
-              objective={0.9}
+              delta={(sheet.scoreGlobal ?? 0) - 1}
+              objective={1}
               index={0}
             />
             {categories.map((c, i) => {
@@ -379,8 +412,8 @@ export default function App() {
                   value={(c.tauxMoyenPondere ?? 0) * 100}
                   icon={Ico}
                   color={style.color}
-                  delta={(c.tauxMoyenPondere ?? 0) - 0.9}
-                  objective={0.9}
+                  delta={(c.tauxMoyenPondere ?? 0) - 1}
+                  objective={1}
                   index={i + 1}
                 />
               );
@@ -408,7 +441,7 @@ export default function App() {
               </div>
 
               {/* Flat indicator table */}
-              <IndicatorTable indicateurs={sheet.indicateurs ?? []} search={search} limit={12} />
+              <IndicatorTable indicateurs={sheet.indicateurs ?? []} search={search} limit={12} onSelect={setSelectedIndicator} />
             </>
           ) : (
             <AnimatePresence mode="wait">
@@ -437,6 +470,14 @@ export default function App() {
           </div>
         </footer>
       </div>
+
+      {selectedIndicator && (
+        <IndicatorHistoryModal
+          indicator={selectedIndicator}
+          currentPeriod={sheet.sheetName}
+          onClose={() => setSelectedIndicator(null)}
+        />
+      )}
     </div>
   );
 }

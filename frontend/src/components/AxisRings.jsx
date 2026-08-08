@@ -33,7 +33,7 @@ export default function AxisRings({ categories, onSelect, selected }) {
     <div className="card p-5 md:p-6">
       <div className="flex items-center justify-between mb-5">
         <span className="tick text-[11px] text-[var(--color-text-dim)]">Performance par axe</span>
-        <span className="text-[11px] text-[var(--color-text-faint)]">Objectif 90%</span>
+        <span className="text-[11px] text-[var(--color-text-faint)]">Objectif 100%</span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {categories.map((c, i) => {

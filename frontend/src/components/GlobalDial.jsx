@@ -4,11 +4,13 @@ const R = 92;
 const CX = 110;
 const CY = 110;
 const CIRC = 2 * Math.PI * R;
-const OBJECTIVE = 0.9;
+// Barème validé par l'encadrant : < 80% rouge (critique), 80–99.9% orange
+// (attention), >= 100% vert (atteint). Reste synchronisé avec parser.js.
+const OBJECTIVE = 1;
 
 function scoreToStatus(ratio) {
-  if (ratio >= 0.9) return "atteint";
-  if (ratio >= 0.7) return "attention";
+  if (ratio >= 1) return "atteint";
+  if (ratio >= 0.8) return "attention";
   return "critique";
 }
 

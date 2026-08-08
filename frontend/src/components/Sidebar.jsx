@@ -3,6 +3,7 @@ import logo from "../assets/tt-logo.png";
 import { titleCase, categoryStyle } from "../lib/format";
 import {
   IconDashboard,
+  IconTv,
   IconGauge,
   IconCart,
   IconSignalTower,
@@ -27,6 +28,7 @@ export default function Sidebar({
   activeCategory,
   onSelectCategory,
   onSelectOverview,
+  onSelectTV,
   onSelectSettings,
   onSelectHistory,
   view,
@@ -58,6 +60,7 @@ export default function Sidebar({
         <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
           <div>
             <div className="tick text-[10px] text-[var(--color-text-faint)] px-3 mb-2">Menu principal</div>
+            <NavItem icon={IconTv} label="Vue TV (tout-en-un)" active={view === "tv"} onClick={onSelectTV} />
             <NavItem icon={IconDashboard} label="Tableau de bord" active={view === "overview"} onClick={onSelectOverview} />
           </div>
 
