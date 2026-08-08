@@ -234,7 +234,36 @@ export default function App() {
     setSidebarOpen(false);
   }
 
-  const isTV = view === "tv" || view === "category";
+  const isTV = view === "category";
+
+  if (view === "tv") {
+    // Le nouveau TVDashboard est un écran autonome (sa propre barre latérale,
+    // son propre en-tête/horloge, sa propre mise en page 100dvh) : on ne
+    // l'englobe plus dans la coquille Sidebar/TopBar partagée, sinon la
+    // navigation et l'en-tête seraient dupliqués à l'écran.
+    return (
+      <>
+        <TVDashboard
+          sheet={sheet}
+          categories={categories}
+          scoreGlobal={sheet.scoreGlobal}
+          period={sheet.sheetName}
+          onOpenIndicator={setSelectedIndicator}
+          onSelectTV={goTV}
+          onSelectCategory={goCategory}
+          onSelectHistory={goHistory}
+          onSelectSettings={goSettings}
+        />
+        {selectedIndicator && (
+          <IndicatorHistoryModal
+            indicator={selectedIndicator}
+            currentPeriod={sheet.sheetName}
+            onClose={() => setSelectedIndicator(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className={`flex bg-[var(--color-bg)] ${isTV ? "h-screen overflow-hidden" : "min-h-screen"}`}>
@@ -361,20 +390,6 @@ export default function App() {
                 onAllDeleted={handleHistoryAllDeleted}
               />
             </>
-          )}
-
-          {view === "tv" && (
-            <TVDashboard
-              sheet={sheet}
-              categories={categories}
-              scoreGlobal={sheet.scoreGlobal}
-              period={sheet.sheetName}
-              total={totalIndicateurs}
-              atteints={atteints}
-              attention={attention}
-              critiques={critiques}
-              onOpenIndicator={setSelectedIndicator}
-            />
           )}
 
           {view === "category" && (
